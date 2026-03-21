@@ -11,6 +11,7 @@ import { ProvisionerModule } from './modules/provisioner/provisioner.module';
 import { DomainModule } from './modules/domain/domain.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { CommonCodeModule } from './modules/common-code/common-code.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { BillingModule } from './modules/billing/billing.module';
       }),
     }),
     AuthModule,
+    CommonCodeModule,
     TenantModule,
     AwsModule,
     ProvisionerModule,
