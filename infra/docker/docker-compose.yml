@@ -1,0 +1,54 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/console.conf:/etc/nginx/conf.d/default.conf
+      - console-web-dist:/usr/share/nginx/html
+    depends_on:
+      - console-api
+    restart: unless-stopped
+
+  console-api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/console-api.Dockerfile
+    env_file:
+      - ../../.env
+    depends_on:
+      console-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  console-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-haruos}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-haruos}
+      POSTGRES_DB: ${DB_DATABASE:-haruos_console}
+    volumes:
+      - console-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haruos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  flyway:
+    image: flyway/flyway:10
+    command: migrate
+    volumes:
+      - ../flyway/console:/flyway/sql
+    environment:
+      FLYWAY_URL: jdbc:postgresql://console-db:5432/${DB_DATABASE:-haruos_console}
+      FLYWAY_USER: ${DB_USERNAME:-haruos}
+      FLYWAY_PASSWORD: ${DB_PASSWORD:-haruos}
+    depends_on:
+      console-db:
+        condition: service_healthy
+
+volumes:
+  console-db-data:
+  console-web-dist:
