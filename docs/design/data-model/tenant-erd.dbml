@@ -1,0 +1,431 @@
+// =============================================================
+// HaruOS 테넌트 앱 DB 스키마 (tenant-erd.dbml)
+// Database: PostgreSQL 16 + pgvector
+// 테넌트별 독립 RDS 인스턴스
+// =============================================================
+
+// -------------------------------------------------------------
+// 공통코드 (테넌트 앱에도 동일 구조)
+// -------------------------------------------------------------
+
+Table code_groups {
+  group_code varchar(50) [pk, note: 'SCHEDULE_STATUS, DOCUMENT_TYPE 등']
+  name varchar(100) [not null]
+  description varchar(500)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table codes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  group_code varchar(50) [not null]
+  code varchar(50) [not null]
+  name varchar(100) [not null]
+  sort_order int [not null, default: 0]
+  is_enabled boolean [not null, default: true]
+  metadata jsonb
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (group_code, code) [unique]
+  }
+}
+
+Ref: codes.group_code > code_groups.group_code
+
+// -------------------------------------------------------------
+// 인증
+// -------------------------------------------------------------
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email varchar(255) [not null, unique]
+  name varchar(100) [not null]
+  role varchar(50) [not null, default: 'MEMBER', note: '공통코드 USER_ROLE: ADMIN, MEMBER']
+  is_active boolean [not null, default: true]
+  last_login_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table otp_codes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  code varchar(6) [not null]
+  expires_at timestamp [not null]
+  used_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, code)
+  }
+}
+
+Ref: otp_codes.user_id > users.id
+
+Table refresh_tokens {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamp [not null]
+  revoked_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    user_id
+  }
+}
+
+Ref: refresh_tokens.user_id > users.id
+
+// -------------------------------------------------------------
+// 대화 (Haru 오케스트레이터)
+// -------------------------------------------------------------
+
+Table conversations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  title varchar(200) [note: '대화 제목 (자동 생성)']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    user_id
+  }
+}
+
+Ref: conversations.user_id > users.id
+
+Table messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  conversation_id uuid [not null]
+  role varchar(20) [not null, note: 'user, assistant, system']
+  content text [not null]
+  metadata jsonb [note: '의도 분석 결과, 에이전트 호출 정보 등']
+  token_count int [default: 0, note: '토큰 수']
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    conversation_id
+  }
+}
+
+Ref: messages.conversation_id > conversations.id
+
+// -------------------------------------------------------------
+// 프로젝트
+// -------------------------------------------------------------
+
+Table projects {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(200) [not null]
+  description text
+  status varchar(50) [not null, default: 'ACTIVE', note: '공통코드 PROJECT_STATUS']
+  category varchar(50) [note: '공통코드 PROJECT_CATEGORY']
+  clickup_space_id varchar(50) [note: 'ClickUp Space ID']
+  progress int [not null, default: 0, note: '진행률 0~100']
+  created_by uuid [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    status
+    created_by
+  }
+}
+
+Ref: projects.created_by > users.id
+
+Table project_tasks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  project_id uuid [not null]
+  title varchar(300) [not null]
+  description text
+  status varchar(50) [not null, default: 'TODO', note: '공통코드 TASK_STATUS']
+  priority varchar(20) [note: '공통코드 TASK_PRIORITY']
+  assignee_id uuid
+  due_date timestamp
+  clickup_task_id varchar(50) [note: 'ClickUp Task ID']
+  sort_order int [not null, default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    project_id
+    status
+    assignee_id
+  }
+}
+
+Ref: project_tasks.project_id > projects.id
+Ref: project_tasks.assignee_id > users.id
+
+// -------------------------------------------------------------
+// 일정
+// -------------------------------------------------------------
+
+Table schedules {
+  id uuid [pk, default: `gen_random_uuid()`]
+  title varchar(300) [not null]
+  description text
+  start_at timestamp [not null]
+  end_at timestamp
+  is_all_day boolean [not null, default: false]
+  location varchar(300)
+  status varchar(50) [not null, default: 'SCHEDULED', note: '공통코드 SCHEDULE_STATUS']
+  recurrence_rule varchar(200) [note: 'iCal RRULE 형식']
+  reminder_minutes int [note: '리마인더 (시작 N분 전)']
+  project_id uuid [note: '연관 프로젝트']
+  clickup_task_id varchar(50) [note: 'ClickUp 연동 시']
+  created_by uuid [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (start_at, end_at)
+    project_id
+    created_by
+  }
+}
+
+Ref: schedules.project_id > projects.id
+Ref: schedules.created_by > users.id
+
+// -------------------------------------------------------------
+// 문서
+// -------------------------------------------------------------
+
+Table documents {
+  id uuid [pk, default: `gen_random_uuid()`]
+  title varchar(300) [not null]
+  content text [note: 'Markdown 본문']
+  summary text [note: 'AI 요약']
+  type varchar(50) [not null, default: 'GENERAL', note: '공통코드 DOCUMENT_TYPE: GENERAL, MINUTES, REPORT']
+  status varchar(50) [not null, default: 'DRAFT', note: '공통코드 DOCUMENT_STATUS']
+  project_id uuid [note: '연관 프로젝트']
+  s3_key varchar(500) [note: 'S3 원본 파일 경로 (녹취록 등)']
+  word_count int [default: 0]
+  created_by uuid [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    type
+    project_id
+    created_by
+  }
+}
+
+Ref: documents.project_id > projects.id
+Ref: documents.created_by > users.id
+
+Table document_chunks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  document_id uuid [not null]
+  chunk_index int [not null, note: '문서 내 순서']
+  content text [not null, note: '청크 텍스트']
+  embedding "vector(1024)" [note: 'Bedrock Titan 임베딩 벡터']
+  token_count int [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    document_id
+  }
+
+  note: 'pgvector 확장 필요. 임베딩 인덱스: ivfflat 또는 hnsw'
+}
+
+Ref: document_chunks.document_id > documents.id
+
+Table action_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  document_id uuid [not null, note: '추출 원본 문서 (회의록)']
+  content varchar(500) [not null, note: '액션 아이템 내용']
+  assignee_name varchar(100) [note: 'AI가 추출한 담당자명']
+  due_date timestamp [note: 'AI가 추출한 마감일']
+  status varchar(50) [not null, default: 'PENDING', note: '공통코드 ACTION_ITEM_STATUS']
+  clickup_task_id varchar(50) [note: '생성된 ClickUp 작업 ID']
+  project_task_id uuid [note: '연결된 프로젝트 태스크']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    document_id
+  }
+}
+
+Ref: action_items.document_id > documents.id
+Ref: action_items.project_task_id > project_tasks.id
+
+// -------------------------------------------------------------
+// 파일
+// -------------------------------------------------------------
+
+Table files {
+  id uuid [pk, default: `gen_random_uuid()`]
+  original_name varchar(500) [not null, note: '원본 파일명']
+  s3_key varchar(500) [not null, note: 'S3 경로']
+  size_bytes bigint [not null]
+  mime_type varchar(100)
+  category varchar(50) [note: '공통코드 FILE_CATEGORY: DOCUMENT, IMAGE, ARCHIVE 등']
+  status varchar(50) [not null, default: 'UPLOADED', note: '공통코드 FILE_STATUS']
+  project_id uuid [note: '연관 프로젝트']
+  parent_file_id uuid [note: '압축파일 원본 (해제 시)']
+  uploaded_by uuid
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    status
+    project_id
+    uploaded_by
+  }
+}
+
+Ref: files.project_id > projects.id
+Ref: files.parent_file_id > files.id
+Ref: files.uploaded_by > users.id
+
+Table file_tasks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  file_id uuid [not null]
+  task_type varchar(50) [not null, note: '공통코드 FILE_TASK_TYPE: EXTRACT, CLASSIFY, ORGANIZE']
+  status varchar(50) [not null, default: 'PENDING', note: '공통코드 FILE_TASK_STATUS']
+  result jsonb [note: '처리 결과']
+  error_message text
+  started_at timestamp
+  completed_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    file_id
+  }
+}
+
+Ref: file_tasks.file_id > files.id
+
+Table file_task_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  file_task_id uuid [not null]
+  action varchar(100) [not null, note: '수행한 작업']
+  detail jsonb [note: '상세 정보']
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    file_task_id
+  }
+}
+
+Ref: file_task_logs.file_task_id > file_tasks.id
+
+// -------------------------------------------------------------
+// AI
+// -------------------------------------------------------------
+
+Table ai_prompt_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null, unique, note: 'intent_analysis, minutes_generation 등']
+  description varchar(500)
+  template text [not null, note: '프롬프트 템플릿 (변수 치환 가능)']
+  model_id varchar(100) [note: '기본 모델 지정 (없으면 게이트웨이 기본값)']
+  max_tokens int [default: 4096]
+  temperature decimal(3,2) [default: 0.7]
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table ai_usage_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid
+  agent varchar(50) [not null, note: 'haru, project, schedule, document, knowledge, file']
+  model_id varchar(100) [not null]
+  input_tokens int [not null, default: 0]
+  output_tokens int [not null, default: 0]
+  latency_ms int [note: '응답 시간 (밀리초)']
+  prompt_template_id uuid [note: '사용된 프롬프트 템플릿']
+  conversation_id uuid [note: '대화 컨텍스트']
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (agent, created_at)
+    user_id
+  }
+}
+
+Ref: ai_usage_logs.user_id > users.id
+Ref: ai_usage_logs.prompt_template_id > ai_prompt_templates.id
+Ref: ai_usage_logs.conversation_id > conversations.id
+
+// -------------------------------------------------------------
+// 배치
+// -------------------------------------------------------------
+
+Table batch_jobs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null, unique, note: 'daily_briefing, clickup_sync 등']
+  description varchar(500)
+  cron_expression varchar(50) [not null, note: 'EventBridge 스케줄']
+  is_enabled boolean [not null, default: true]
+  last_run_at timestamp
+  last_run_status varchar(50) [note: '공통코드 BATCH_STATUS']
+  last_run_duration_ms int
+  last_error text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table batch_job_histories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  batch_job_id uuid [not null]
+  status varchar(50) [not null, note: '공통코드 BATCH_STATUS']
+  started_at timestamp [not null]
+  completed_at timestamp
+  duration_ms int
+  result jsonb [note: '실행 결과 요약']
+  error text
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (batch_job_id, started_at)
+  }
+}
+
+Ref: batch_job_histories.batch_job_id > batch_jobs.id
+
+// -------------------------------------------------------------
+// ClickUp 연동
+// -------------------------------------------------------------
+
+Table clickup_sync_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  direction varchar(10) [not null, note: 'INBOUND (ClickUp→HaruOS), OUTBOUND (HaruOS→ClickUp)']
+  entity_type varchar(50) [not null, note: 'SPACE, TASK, LIST']
+  entity_id varchar(100) [not null, note: 'HaruOS 엔티티 ID']
+  clickup_id varchar(100) [not null, note: 'ClickUp 엔티티 ID']
+  action varchar(50) [not null, note: 'CREATE, UPDATE, DELETE']
+  status varchar(50) [not null, note: 'SUCCESS, FAILED']
+  error_message text
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (entity_type, entity_id)
+    created_at
+  }
+}
+
+// -------------------------------------------------------------
+// DOCX 템플릿
+// -------------------------------------------------------------
+
+Table docx_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  description varchar(500)
+  s3_key varchar(500) [not null, note: 'S3에 저장된 템플릿 파일']
+  is_default boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}

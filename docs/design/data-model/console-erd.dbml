@@ -1,0 +1,324 @@
+// =============================================================
+// HaruOS 관리 콘솔 DB 스키마 (console-erd.dbml)
+// Database: PostgreSQL
+// =============================================================
+
+// -------------------------------------------------------------
+// 공통코드
+// -------------------------------------------------------------
+
+Table code_groups {
+  group_code varchar(50) [pk, note: 'TENANT_STATUS, PLAN_TYPE 등']
+  name varchar(100) [not null, note: '그룹명']
+  description varchar(500) [note: '설명']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table codes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  group_code varchar(50) [not null, note: 'FK 대신 문자열 참조']
+  code varchar(50) [not null, note: 'ACTIVE, SUSPENDED 등']
+  name varchar(100) [not null, note: '활성, 일시중지 등']
+  sort_order int [not null, default: 0]
+  is_enabled boolean [not null, default: true]
+  metadata jsonb [note: '추가 속성']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (group_code, code) [unique]
+  }
+}
+
+Ref: codes.group_code > code_groups.group_code
+
+// -------------------------------------------------------------
+// 인증
+// -------------------------------------------------------------
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email varchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  name varchar(100) [not null]
+  is_email_verified boolean [not null, default: false]
+  email_verified_at timestamp
+  last_login_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table email_verifications {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  token varchar(255) [not null, unique]
+  expires_at timestamp [not null]
+  verified_at timestamp
+  created_at timestamp [not null, default: `now()`]
+}
+
+Ref: email_verifications.user_id > users.id
+
+Table refresh_tokens {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamp [not null]
+  revoked_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    user_id
+  }
+}
+
+Ref: refresh_tokens.user_id > users.id
+
+// -------------------------------------------------------------
+// 테넌트
+// -------------------------------------------------------------
+
+Table tenants {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, note: '소유자']
+  name varchar(100) [not null]
+  slug varchar(100) [not null, unique, note: '서브도메인용 ({slug}.haruos.app)']
+  description varchar(500)
+  status varchar(50) [not null, default: 'CREATING', note: '공통코드 TENANT_STATUS']
+  plan varchar(50) [not null, default: 'STARTER', note: '공통코드 PLAN_TYPE']
+  region varchar(50) [not null, note: 'AWS 리전']
+  trial_ends_at timestamp [note: '무료 체험 종료일']
+  suspended_at timestamp
+  deleted_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    user_id
+    status
+  }
+}
+
+Ref: tenants.user_id > users.id
+
+// -------------------------------------------------------------
+// AWS 연동
+// -------------------------------------------------------------
+
+Table aws_credentials {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null, unique]
+  role_arn varchar(500) [not null, note: 'IAM Role ARN']
+  external_id varchar(100) [not null, note: 'STS AssumeRole 외부 ID']
+  region varchar(50) [not null]
+  status varchar(50) [not null, default: 'PENDING', note: '공통코드 AWS_CREDENTIAL_STATUS']
+  validated_at timestamp
+  last_assumed_at timestamp [note: '마지막 AssumeRole 시각']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Ref: aws_credentials.tenant_id > tenants.id
+
+// -------------------------------------------------------------
+// 프로비저닝
+// -------------------------------------------------------------
+
+Table provisioning_jobs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  status varchar(50) [not null, default: 'PENDING', note: '공통코드 PROVISIONING_STATUS']
+  current_step varchar(100) [note: '현재 진행 단계']
+  total_steps int [not null, default: 0]
+  completed_steps int [not null, default: 0]
+  started_at timestamp
+  completed_at timestamp
+  error_message text
+  terraform_state_key varchar(500) [note: 'S3 state 경로']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    tenant_id
+  }
+}
+
+Ref: provisioning_jobs.tenant_id > tenants.id
+
+Table provisioning_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_id uuid [not null]
+  step varchar(100) [not null, note: 'VPC, RDS, ECS 등']
+  status varchar(50) [not null, note: '공통코드 STEP_STATUS']
+  message text
+  detail jsonb [note: 'Terraform/Ansible 출력']
+  started_at timestamp
+  completed_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    job_id
+  }
+}
+
+Ref: provisioning_logs.job_id > provisioning_jobs.id
+
+// -------------------------------------------------------------
+// 도메인
+// -------------------------------------------------------------
+
+Table domains {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  domain varchar(255) [not null, note: 'myteam.haruos.app 또는 haru.company.com']
+  type varchar(50) [not null, note: '공통코드 DOMAIN_TYPE: SUBDOMAIN, CUSTOM']
+  dns_provider varchar(50) [note: '공통코드 DNS_PROVIDER: CLOUDFLARE, ROUTE53, MANUAL']
+  status varchar(50) [not null, default: 'PENDING', note: '공통코드 DOMAIN_STATUS']
+  is_primary boolean [not null, default: false]
+  cname_target varchar(255) [note: 'CNAME 대상 (수동 DNS용)']
+  ssl_status varchar(50) [note: '공통코드 SSL_STATUS']
+  dns_verified_at timestamp
+  cloudflare_zone_id varchar(100)
+  cloudflare_api_token_enc varchar(500) [note: '암호화된 토큰']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    tenant_id
+    (domain) [unique]
+  }
+}
+
+Ref: domains.tenant_id > tenants.id
+
+// -------------------------------------------------------------
+// 모니터링
+// -------------------------------------------------------------
+
+Table metrics {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  metric_type varchar(50) [not null, note: '공통코드 METRIC_TYPE: ECS_CPU, RDS_CPU, S3_SIZE 등']
+  value decimal(20,4) [not null]
+  unit varchar(20) [note: 'Percent, Bytes, Count']
+  collected_at timestamp [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (tenant_id, metric_type, collected_at)
+  }
+}
+
+Ref: metrics.tenant_id > tenants.id
+
+Table cost_records {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  service varchar(50) [not null, note: 'RDS, ECS, Bedrock, S3 등']
+  cost decimal(10,4) [not null]
+  currency varchar(3) [not null, default: 'USD']
+  period_start date [not null]
+  period_end date [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (tenant_id, period_start)
+  }
+}
+
+Ref: cost_records.tenant_id > tenants.id
+
+Table ai_usage_records {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  model_id varchar(100) [not null, note: 'Bedrock 모델 ID']
+  input_tokens int [not null, default: 0]
+  output_tokens int [not null, default: 0]
+  estimated_cost decimal(10,6) [not null, default: 0]
+  collected_at timestamp [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (tenant_id, collected_at)
+  }
+}
+
+Ref: ai_usage_records.tenant_id > tenants.id
+
+Table alert_configs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  alert_type varchar(50) [not null, note: '공통코드 ALERT_TYPE: COST, CPU, DB_STORAGE, AI_TOKEN']
+  threshold decimal(20,4) [not null, note: '임계값']
+  is_enabled boolean [not null, default: true]
+  last_triggered_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (tenant_id, alert_type) [unique]
+  }
+}
+
+Ref: alert_configs.tenant_id > tenants.id
+
+Table alert_histories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  alert_config_id uuid [not null]
+  tenant_id uuid [not null]
+  triggered_value decimal(20,4) [not null, note: '발생 시점 값']
+  message text [not null]
+  notified_at timestamp [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    tenant_id
+  }
+}
+
+Ref: alert_histories.alert_config_id > alert_configs.id
+Ref: alert_histories.tenant_id > tenants.id
+
+// -------------------------------------------------------------
+// 과금 (P4)
+// -------------------------------------------------------------
+
+Table subscriptions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null, unique]
+  status varchar(50) [not null, default: 'TRIAL', note: '공통코드 SUBSCRIPTION_STATUS']
+  stripe_customer_id varchar(100)
+  stripe_subscription_id varchar(100)
+  current_period_start timestamp
+  current_period_end timestamp
+  cancelled_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Ref: subscriptions.tenant_id > tenants.id
+
+// -------------------------------------------------------------
+// 인프라 정보 (프로비저닝 결과)
+// -------------------------------------------------------------
+
+Table tenant_infra {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null, unique]
+  ecs_cluster_arn varchar(500)
+  ecs_service_arn varchar(500)
+  rds_endpoint varchar(500)
+  rds_instance_id varchar(100)
+  s3_bucket_name varchar(255)
+  alb_dns_name varchar(500)
+  alb_arn varchar(500)
+  vpc_id varchar(50)
+  ecr_repository_url varchar(500)
+  current_task_definition varchar(500) [note: '현재 배포된 Task Definition ARN']
+  current_app_version varchar(50) [note: '현재 배포된 앱 버전']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Ref: tenant_infra.tenant_id > tenants.id
