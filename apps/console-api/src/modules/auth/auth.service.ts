@@ -35,8 +35,11 @@ export class AuthService {
   ) {}
 
   /**
-   * 회원가입.
-   * 이메일 중복 검증 → 비밀번호 해싱 → 사용자 생성 → 인증 메일 발송.
+   * 회원가입. 이메일 중복 검증 → 비밀번호 해싱 → 사용자 생성 → 인증 메일 발송.
+   *
+   * @param dto - 이메일, 비밀번호, 이름
+   * @returns 생성된 사용자 정보
+   * @throws DuplicateResourceException 이메일이 이미 존재하는 경우
    */
   async signup(dto: SignupRequestDto): Promise<SignupResponseDto> {
     const existing = await this.userRepository.findOne({ where: { email: dto.email } });
@@ -67,8 +70,11 @@ export class AuthService {
   }
 
   /**
-   * 로그인.
-   * 비밀번호 검증 → Access Token + Refresh Token 발급.
+   * 로그인. 비밀번호 검증 → Access Token(15분) + Refresh Token(7일) 발급.
+   *
+   * @param dto - 이메일, 비밀번호
+   * @returns Access Token, Refresh Token, 사용자 요약 정보
+   * @throws UnauthorizedException 이메일 또는 비밀번호가 유효하지 않은 경우
    */
   async login(dto: LoginRequestDto): Promise<LoginResponseDto> {
     const user = await this.userRepository.findOne({ where: { email: dto.email } });
@@ -107,8 +113,11 @@ export class AuthService {
   }
 
   /**
-   * 이메일 인증.
-   * 토큰 유효성 검증 → 사용자 인증 상태 업데이트.
+   * 이메일 인증. 토큰 유효성 검증 → 사용자 인증 상태 업데이트.
+   *
+   * @param token - 이메일 인증 토큰 (회원가입 시 발급, 24시간 유효)
+   * @throws ResourceNotFoundException 토큰이 존재하지 않는 경우
+   * @throws ValidationException 이미 인증되었거나 만료된 경우
    */
   async verifyEmail(token: string): Promise<void> {
     const verification = await this.emailVerificationRepository.findOne({ where: { token } });
@@ -138,8 +147,11 @@ export class AuthService {
   }
 
   /**
-   * Access Token 갱신.
-   * Refresh Token 검증 → 새 Access Token 발급.
+   * Access Token 갱신. Refresh Token의 bcrypt hash를 DB와 대조하여 검증.
+   *
+   * @param refreshToken - 로그인 시 발급된 plain Refresh Token
+   * @returns 새로 발급된 Access Token
+   * @throws UnauthorizedException Refresh Token이 유효하지 않거나 만료된 경우
    */
   async refreshAccessToken(refreshToken: string): Promise<TokenResponseDto> {
     const tokens = await this.refreshTokenRepository.find({
@@ -176,8 +188,12 @@ export class AuthService {
   }
 
   /**
-   * 비밀번호 변경.
-   * 기존 비밀번호 검증 → 새 비밀번호 해싱 + 저장.
+   * 비밀번호 변경. 기존 비밀번호 검증 후 새 비밀번호로 교체.
+   *
+   * @param userId - JWT에서 추출한 사용자 ID
+   * @param dto - 기존 비밀번호, 새 비밀번호
+   * @throws ResourceNotFoundException 사용자가 존재하지 않는 경우
+   * @throws UnauthorizedException 기존 비밀번호가 틀린 경우
    */
   async changePassword(userId: string, dto: ChangePasswordRequestDto): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserEntity } from '../entities/user.entity';
 
+/** 사용자 요약 정보. 여러 응답 DTO에서 재사용. */
 export class UserSummaryVo {
   @ApiProperty()
   id: string;
@@ -11,6 +12,7 @@ export class UserSummaryVo {
   @ApiProperty()
   name: string;
 
+  /** @param user - UserEntity에서 변환 */
   static from(user: UserEntity): UserSummaryVo {
     const vo = new UserSummaryVo();
     vo.id = user.id;
@@ -20,6 +22,7 @@ export class UserSummaryVo {
   }
 }
 
+/** 회원가입 응답. */
 export class SignupResponseDto {
   @ApiProperty()
   id: string;
@@ -33,6 +36,7 @@ export class SignupResponseDto {
   @ApiProperty()
   createdAt: Date;
 
+  /** @param user - UserEntity에서 변환 */
   static from(user: UserEntity): SignupResponseDto {
     const dto = new SignupResponseDto();
     dto.id = user.id;
@@ -43,6 +47,7 @@ export class SignupResponseDto {
   }
 }
 
+/** 로그인 응답. Access Token + Refresh Token + 사용자 요약. */
 export class LoginResponseDto {
   @ApiProperty()
   accessToken: string;
@@ -54,6 +59,7 @@ export class LoginResponseDto {
   user: UserSummaryVo;
 }
 
+/** 토큰 갱신 응답. 새 Access Token만 반환. */
 export class TokenResponseDto {
   @ApiProperty()
   accessToken: string;
