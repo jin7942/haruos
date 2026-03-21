@@ -8,10 +8,15 @@ import { CloudwatchAdapter } from './adapters/cloudwatch.adapter';
 import { CostExplorerAdapter } from './adapters/cost-explorer.adapter';
 import { MetricEntity } from './entities/metric.entity';
 import { CostRecordEntity } from './entities/cost-record.entity';
+import { AiUsageRecordEntity } from './entities/ai-usage-record.entity';
 import { AlertConfigEntity } from './entities/alert-config.entity';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([MetricEntity, CostRecordEntity, AlertConfigEntity])],
+  imports: [
+    TypeOrmModule.forFeature([MetricEntity, CostRecordEntity, AiUsageRecordEntity, AlertConfigEntity]),
+    TenantModule,
+  ],
   controllers: [MonitoringController],
   providers: [
     MonitoringService,
