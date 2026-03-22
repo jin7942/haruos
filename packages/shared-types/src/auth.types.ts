@@ -3,6 +3,7 @@ export interface UserSummary {
   id: string;
   email: string;
   name: string;
+  role: 'USER' | 'ADMIN';
 }
 
 /** 회원가입 응답. */

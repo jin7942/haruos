@@ -33,9 +33,27 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "사용할 가용 영역 목록"
+  description = "사용할 가용 영역 목록 (미지정 시 리전별 기본값 사용)"
   type        = list(string)
-  default     = ["ap-northeast-2a", "ap-northeast-2c"]
+  default     = []
+}
+
+# 리전별 기본 가용 영역 맵
+variable "region_az_map" {
+  description = "리전별 기본 가용 영역"
+  type        = map(list(string))
+  default = {
+    "ap-northeast-2" = ["ap-northeast-2a", "ap-northeast-2c"]
+    "us-east-1"      = ["us-east-1a", "us-east-1b"]
+    "eu-west-1"      = ["eu-west-1a", "eu-west-1b"]
+  }
+}
+
+# 지원 리전 목록
+variable "supported_regions" {
+  description = "HaruOS 지원 리전 목록"
+  type        = list(string)
+  default     = ["ap-northeast-2", "us-east-1", "eu-west-1"]
 }
 
 variable "public_subnet_cidrs" {

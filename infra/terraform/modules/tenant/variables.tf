@@ -133,3 +133,29 @@ variable "task_memory" {
   type        = number
   default     = 512
 }
+
+# 보안그룹 격리
+variable "enable_sg_isolation" {
+  description = "테넌트별 전용 보안그룹 사용 여부 (true: 테넌트 전용 SG 생성, false: 공유 SG 사용)"
+  type        = bool
+  default     = true
+}
+
+variable "alb_security_group_id" {
+  description = "ALB 보안 그룹 ID (테넌트 전용 SG 생성 시 인바운드 소스로 사용)"
+  type        = string
+  default     = ""
+}
+
+# S3
+variable "file_bucket_name" {
+  description = "파일 저장용 S3 버킷 이름 (테넌트 prefix 격리에 사용)"
+  type        = string
+  default     = ""
+}
+
+variable "file_bucket_arn" {
+  description = "파일 저장용 S3 버킷 ARN"
+  type        = string
+  default     = ""
+}

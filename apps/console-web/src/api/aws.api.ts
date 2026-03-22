@@ -1,4 +1,4 @@
-import type { CfnTemplateUrlResponse, AwsCredentialResponse } from '@haruos/shared-types';
+import type { CfnTemplateUrlResponse, CfnLaunchUrlResponse, AwsCredentialResponse } from '@haruos/shared-types';
 import { apiClient } from './client';
 
 /** AWS 자격증명 검증 파라미터. */
@@ -12,6 +12,12 @@ export const awsApi = {
   /** CloudFormation 스택 생성 URL 조회. */
   getCfnTemplateUrl: (tenantId: string) =>
     apiClient.get<CfnTemplateUrlResponse>(`/tenants/${tenantId}/aws/cfn-template-url`).then((r) => r.data),
+
+  /** CloudFormation 1클릭 Quick Create URL 조회. */
+  getCfnLaunchUrl: (tenantId: string, region?: string) =>
+    apiClient.get<CfnLaunchUrlResponse>(`/tenants/${tenantId}/aws/cfn-launch-url`, {
+      params: region ? { region } : undefined,
+    }).then((r) => r.data),
 
   /** AWS 자격증명 검증. */
   validateCredential: (tenantId: string, params: ValidateAwsParams) =>

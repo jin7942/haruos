@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AdminRoute } from './components/auth/AdminRoute';
 import { AppLayout } from './components/layout/AppLayout';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -14,6 +15,9 @@ import { MonitoringPage } from './pages/MonitoringPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AccountPage } from './pages/AccountPage';
 import { AccountBillingPage } from './pages/AccountBillingPage';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { AdminTenantsPage } from './pages/admin/AdminTenantsPage';
+import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +51,13 @@ export function App() {
                 <Route path="/tenants/:id/settings" element={<SettingsPage />} />
                 <Route path="/account" element={<AccountPage />} />
                 <Route path="/account/billing" element={<AccountBillingPage />} />
+
+                {/* 관리자 전용 라우트 */}
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                  <Route path="/admin/tenants" element={<AdminTenantsPage />} />
+                  <Route path="/admin/users" element={<AdminUsersPage />} />
+                </Route>
               </Route>
             </Route>
 

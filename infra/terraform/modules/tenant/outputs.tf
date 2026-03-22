@@ -21,3 +21,13 @@ output "target_group_arn" {
   description = "테넌트 ALB Target Group ARN"
   value       = aws_lb_target_group.tenant.arn
 }
+
+output "ecs_security_group_id" {
+  description = "테넌트 ECS 보안그룹 ID (격리 모드 시 전용 SG)"
+  value       = local.ecs_security_group_id
+}
+
+output "rds_security_group_id" {
+  description = "테넌트 RDS 보안그룹 ID (격리 모드 시 전용 SG)"
+  value       = local.rds_security_group_id
+}

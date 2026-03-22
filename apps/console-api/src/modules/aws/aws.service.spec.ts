@@ -56,6 +56,32 @@ describe('AwsService', () => {
     });
   });
 
+  describe('getCfnLaunchUrl', () => {
+    it('Quick Create URL에 stackName, ExternalId 파라미터를 포함한다', () => {
+      const result = service.getCfnLaunchUrl('tenant-456');
+
+      expect(result.launchUrl).toContain('cloudformation');
+      expect(result.launchUrl).toContain('quickcreate');
+      expect(result.launchUrl).toContain('stackName=HaruOS-TrustRole-tenant-4');
+      expect(result.launchUrl).toContain('param_ExternalId=');
+      expect(result.externalId).toContain('haruos-tenant-456-');
+      expect(result.stackName).toContain('HaruOS-TrustRole-');
+    });
+
+    it('region 파라미터를 전달하면 해당 리전 URL을 생성한다', () => {
+      const result = service.getCfnLaunchUrl('tenant-789', 'us-east-1');
+
+      expect(result.launchUrl).toContain('us-east-1.console.aws.amazon.com');
+      expect(result.launchUrl).toContain('region=us-east-1');
+    });
+
+    it('region 미지정 시 기본 리전(ap-northeast-2)을 사용한다', () => {
+      const result = service.getCfnLaunchUrl('tenant-000');
+
+      expect(result.launchUrl).toContain('ap-northeast-2.console.aws.amazon.com');
+    });
+  });
+
   describe('validateCredential', () => {
     const dto = {
       roleArn: 'arn:aws:iam::123456789012:role/HaruOSRole',

@@ -88,7 +88,7 @@ export class AuthService {
     }
 
     const accessToken = this.jwtService.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, role: user.role },
       { expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m') },
     );
 
@@ -178,7 +178,7 @@ export class AuthService {
     }
 
     const accessToken = this.jwtService.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, role: user.role },
       { expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m') },
     );
 

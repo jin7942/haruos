@@ -8,6 +8,7 @@ import { AwsCredentialPort } from './ports/aws-credential.port';
 import { ValidateAwsRequestDto } from './dto/validate-aws.request.dto';
 import { AwsCredentialResponseDto } from './dto/aws-credential.response.dto';
 import { CfnTemplateUrlResponseDto } from './dto/cfn-template-url.response.dto';
+import { CfnLaunchUrlResponseDto } from './dto/cfn-launch-url.response.dto';
 import { ResourceNotFoundException, ValidationException } from '../../common/exceptions/business.exception';
 import { ExternalApiException } from '../../common/exceptions/technical.exception';
 
@@ -42,6 +43,40 @@ export class AwsService {
       `&param_ExternalId=${encodeURIComponent(externalId)}`;
 
     return CfnTemplateUrlResponseDto.of(templateUrl, externalId);
+  }
+
+  /**
+   * CloudFormation Quick Create Launch URL을 생성한다.
+   * stackName, ExternalId, HaruOSAccountId를 포함하여 1클릭으로 스택 생성이 가능하다.
+   *
+   * @param tenantId - 테넌트 ID
+   * @param region - 스택을 생성할 AWS 리전 (선택, 기본: ap-northeast-2)
+   * @returns Quick Create Launch URL, External ID, 스택 이름
+   */
+  getCfnLaunchUrl(tenantId: string, region?: string): CfnLaunchUrlResponseDto {
+    const externalId = `haruos-${tenantId}-${randomUUID().slice(0, 8)}`;
+    const stackName = `HaruOS-TrustRole-${tenantId.slice(0, 8)}`;
+    const targetRegion = region || this.configService.get<string>('AWS_DEFAULT_REGION', 'ap-northeast-2');
+    const haruosAccountId = this.configService.get<string>('AWS_ACCOUNT_ID', '');
+
+    const templateS3Url = this.configService.get<string>(
+      'AWS_CFN_TEMPLATE_URL',
+      'https://haruos-cfn-templates.s3.amazonaws.com/haruos-role.yaml',
+    );
+
+    const params = new URLSearchParams();
+    params.set('templateURL', templateS3Url);
+    params.set('stackName', stackName);
+    params.set('param_ExternalId', externalId);
+    if (haruosAccountId) {
+      params.set('param_HaruOSAccountId', haruosAccountId);
+    }
+
+    const launchUrl =
+      `https://${targetRegion}.console.aws.amazon.com/cloudformation/home` +
+      `?region=${targetRegion}#/stacks/quickcreate?${params.toString()}`;
+
+    return CfnLaunchUrlResponseDto.of(launchUrl, externalId, stackName);
   }
 
   /**

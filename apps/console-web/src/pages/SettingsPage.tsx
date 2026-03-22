@@ -4,9 +4,15 @@ import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { useCfnTemplateUrl, useAwsCredential, useValidateAws } from '../hooks/useAws';
+import { useCfnTemplateUrl, useCfnLaunchUrl, useAwsCredential, useValidateAws } from '../hooks/useAws';
 import { useDomains, useCreateDomain, useDeleteDomain, useVerifyDns } from '../hooks/useDomains';
-import { useSubscription, useCancelSubscription } from '../hooks/useBilling';
+import {
+  useSubscription,
+  useCancelSubscription,
+  useCreateCheckoutSession,
+  useCreatePortalSession,
+  useInvoices,
+} from '../hooks/useBilling';
 import { useBackups, useCreateBackup, useBackupDownload, useExportData } from '../hooks/useBackups';
 import { formatDate } from '@haruos/shared-utils';
 import type { BadgeVariant } from '../types/ui';
@@ -58,9 +64,10 @@ export function SettingsPage() {
   );
 }
 
-/** AWS 연동 탭. CloudFormation URL 표시 + Role ARN 검증. */
+/** AWS 연동 탭. 1클릭 CloudFormation 연동 + Role ARN 검증. */
 function AwsTab({ tenantId }: { tenantId: string }) {
   const { data: cfn } = useCfnTemplateUrl(tenantId);
+  const { data: launch } = useCfnLaunchUrl(tenantId);
   const { data: credential } = useAwsCredential(tenantId);
   const validateAws = useValidateAws();
   const [roleArn, setRoleArn] = useState('');
@@ -86,29 +93,46 @@ function AwsTab({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-6">
-      {/* CloudFormation 안내 */}
+      {/* 1클릭 AWS 연동 */}
       <Card>
-        <CardHeader><CardTitle>1. CloudFormation 스택 생성</CardTitle></CardHeader>
+        <CardHeader><CardTitle>1. AWS 연동 (1클릭)</CardTitle></CardHeader>
         <p className="mb-3 text-sm text-gray-600">
-          아래 URL로 AWS 콘솔에서 CloudFormation 스택을 생성하세요.
-          HaruOS에 필요한 IAM Role이 자동으로 생성됩니다.
+          버튼을 클릭하면 AWS Console이 열리고, CloudFormation 스택이 자동 구성됩니다.
+          "Create stack"만 누르면 HaruOS에 필요한 IAM Role이 생성됩니다.
         </p>
-        {cfn ? (
-          <div className="space-y-2">
-            <div className="rounded-lg bg-gray-50 p-3 text-sm break-all">
-              <a
-                href={cfn.templateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                CloudFormation 스택 생성 링크
-              </a>
+        {launch ? (
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.open(launch.launchUrl, '_blank', 'noopener,noreferrer')}
+              className="w-full"
+            >
+              1클릭으로 AWS 연동
+            </Button>
+            <div className="rounded-lg bg-gray-50 p-3 text-sm space-y-1">
+              <div>
+                <span className="text-gray-500">External ID: </span>
+                <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">{launch.externalId}</code>
+              </div>
+              <div>
+                <span className="text-gray-500">Stack Name: </span>
+                <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">{launch.stackName}</code>
+              </div>
             </div>
-            <div className="text-sm">
-              <span className="text-gray-500">External ID: </span>
-              <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">{cfn.externalId}</code>
-            </div>
+            {cfn && (
+              <details className="text-sm">
+                <summary className="cursor-pointer text-gray-400 hover:text-gray-600">수동 설정 URL 보기</summary>
+                <div className="mt-2 rounded-lg bg-gray-50 p-3 break-all">
+                  <a
+                    href={cfn.templateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    CloudFormation 템플릿 URL
+                  </a>
+                </div>
+              </details>
+            )}
           </div>
         ) : (
           <p className="text-sm text-gray-400">로딩 중...</p>
@@ -380,10 +404,24 @@ function BackupTab({ tenantId }: { tenantId: string }) {
   );
 }
 
-/** 빌링 탭. 구독 상태, 취소 버튼. */
+function getSubscriptionStatusVariant(status: string): BadgeVariant {
+  switch (status) {
+    case 'ACTIVE': return 'success';
+    case 'TRIAL': return 'info';
+    case 'PAST_DUE': return 'warning';
+    case 'CANCELLED':
+    case 'EXPIRED': return 'danger';
+    default: return 'default';
+  }
+}
+
+/** 빌링 탭. 구독 상태, Stripe Checkout, 결제수단 변경, 인보이스 이력. */
 function BillingTab({ tenantId }: { tenantId: string }) {
   const { data: subscription, isLoading } = useSubscription(tenantId);
+  const { data: invoices } = useInvoices(tenantId);
   const cancelSub = useCancelSubscription();
+  const checkout = useCreateCheckoutSession();
+  const portal = useCreatePortalSession();
 
   if (isLoading) {
     return <Card><p className="text-sm text-gray-400">로딩 중...</p></Card>;
@@ -398,47 +436,143 @@ function BillingTab({ tenantId }: { tenantId: string }) {
     );
   }
 
+  const currentUrl = window.location.href;
+
   return (
-    <Card>
-      <CardHeader><CardTitle>구독 정보</CardTitle></CardHeader>
-      <div className="space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">요금제</span>
-          <span className="font-medium text-gray-900">{subscription.planType}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">상태</span>
-          <Badge variant={subscription.status === 'ACTIVE' ? 'success' : 'warning'}>
-            {subscription.status}
-          </Badge>
-        </div>
-        {subscription.currentPeriodEnd && (
+    <div className="space-y-6">
+      {/* 구독 정보 */}
+      <Card>
+        <CardHeader><CardTitle>구독 정보</CardTitle></CardHeader>
+        <div className="space-y-3">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">현재 주기 종료</span>
-            <span className="text-gray-900">{formatDate(subscription.currentPeriodEnd)}</span>
+            <span className="text-gray-500">요금제</span>
+            <span className="font-medium text-gray-900">
+              {subscription.planType === 'YEARLY' ? '연간 ($190/yr)' : '월간 ($19/mo)'}
+            </span>
           </div>
-        )}
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">가입일</span>
-          <span className="text-gray-900">{formatDate(subscription.createdAt)}</span>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-500">상태</span>
+            <Badge variant={getSubscriptionStatusVariant(subscription.status)}>
+              {subscription.status}
+            </Badge>
+          </div>
+          {subscription.currentPeriodEnd && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">현재 주기 종료</span>
+              <span className="text-gray-900">{formatDate(subscription.currentPeriodEnd)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-500">가입일</span>
+            <span className="text-gray-900">{formatDate(subscription.createdAt)}</span>
+          </div>
+
+          {/* TRIAL 상태: 결제 등록 버튼 */}
+          {subscription.status === 'TRIAL' && (
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <p className="text-sm text-gray-500">14일 무료 체험 중입니다. 결제를 등록하세요.</p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  loading={checkout.isPending}
+                  onClick={() => checkout.mutate({
+                    tenantId,
+                    priceId: import.meta.env.VITE_STRIPE_PRICE_MONTHLY || '',
+                    successUrl: currentUrl,
+                    cancelUrl: currentUrl,
+                  })}
+                >
+                  월간 결제 ($19/mo)
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={checkout.isPending}
+                  onClick={() => checkout.mutate({
+                    tenantId,
+                    priceId: import.meta.env.VITE_STRIPE_PRICE_YEARLY || '',
+                    successUrl: currentUrl,
+                    cancelUrl: currentUrl,
+                  })}
+                >
+                  연간 결제 ($190/yr)
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ACTIVE/PAST_DUE 상태: 관리 버튼 */}
+          {(subscription.status === 'ACTIVE' || subscription.status === 'PAST_DUE') && (
+            <div className="flex gap-2 border-t border-gray-100 pt-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={portal.isPending}
+                onClick={() => portal.mutate({ tenantId, returnUrl: currentUrl })}
+              >
+                결제수단 변경
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={cancelSub.isPending}
+                onClick={() => {
+                  if (window.confirm('구독을 취소하시겠습니까?')) {
+                    cancelSub.mutate(tenantId);
+                  }
+                }}
+              >
+                구독 취소
+              </Button>
+            </div>
+          )}
+
+          {subscription.status === 'PAST_DUE' && (
+            <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700">
+              결제가 실패했습니다. 결제수단을 업데이트해 주세요.
+            </div>
+          )}
         </div>
-        {subscription.status === 'ACTIVE' && (
-          <div className="pt-2">
-            <Button
-              variant="danger"
-              size="sm"
-              loading={cancelSub.isPending}
-              onClick={() => {
-                if (window.confirm('구독을 취소하시겠습니까?')) {
-                  cancelSub.mutate(tenantId);
-                }
-              }}
-            >
-              구독 취소
-            </Button>
+      </Card>
+
+      {/* 인보이스 이력 */}
+      <Card>
+        <CardHeader><CardTitle>결제 이력</CardTitle></CardHeader>
+        {!invoices || invoices.length === 0 ? (
+          <p className="text-sm text-gray-400">결제 이력이 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {invoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={inv.status === 'paid' ? 'success' : 'warning'}>
+                      {inv.status}
+                    </Badge>
+                    <span className="text-sm font-medium text-gray-900">
+                      {inv.currency.toUpperCase()} {(inv.amountPaid / 100).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-400">
+                    {formatDate(inv.periodStart)} ~ {formatDate(inv.periodEnd)}
+                    {inv.paidAt && ` | ${formatDate(inv.paidAt)}`}
+                  </div>
+                </div>
+                {inv.invoiceUrl && (
+                  <a
+                    href={inv.invoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    영수증
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
         )}
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }

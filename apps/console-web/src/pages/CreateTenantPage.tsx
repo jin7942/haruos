@@ -8,7 +8,6 @@ import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 const REGIONS = [
   { value: 'ap-northeast-2', label: 'Seoul (ap-northeast-2)' },
   { value: 'us-east-1', label: 'N. Virginia (us-east-1)' },
-  { value: 'us-west-2', label: 'Oregon (us-west-2)' },
   { value: 'eu-west-1', label: 'Ireland (eu-west-1)' },
 ];
 

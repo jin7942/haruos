@@ -8,6 +8,103 @@ locals {
   db_username = "haruos"
 }
 
+# ─── 테넌트 전용 보안그룹 (격리 옵션) ────────────────────────────────────────
+
+resource "aws_security_group" "tenant_ecs" {
+  count       = var.enable_sg_isolation ? 1 : 0
+  name_prefix = "${local.name_prefix}-ecs-"
+  vpc_id      = var.vpc_id
+  description = "Tenant ${var.tenant_slug} ECS Tasks - ALB에서만 인바운드"
+
+  ingress {
+    description     = "From ALB"
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [var.alb_security_group_id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name     = "${local.name_prefix}-ecs-sg"
+    TenantId = var.tenant_id
+  }
+
+  lifecycle { create_before_destroy = true }
+}
+
+resource "aws_security_group" "tenant_rds" {
+  count       = var.enable_sg_isolation ? 1 : 0
+  name_prefix = "${local.name_prefix}-rds-"
+  vpc_id      = var.vpc_id
+  description = "Tenant ${var.tenant_slug} RDS - 해당 테넌트 ECS에서만 접근"
+
+  ingress {
+    description     = "PostgreSQL from tenant ECS"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.tenant_ecs[0].id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name     = "${local.name_prefix}-rds-sg"
+    TenantId = var.tenant_id
+  }
+
+  lifecycle { create_before_destroy = true }
+}
+
+locals {
+  ecs_security_group_id = var.enable_sg_isolation ? aws_security_group.tenant_ecs[0].id : var.ecs_security_group_id
+  rds_security_group_id = var.enable_sg_isolation ? aws_security_group.tenant_rds[0].id : var.rds_security_group_id
+}
+
+# ─── S3 버킷 정책: 테넌트 prefix 격리 ──────────────────────────────────────
+
+resource "aws_s3_bucket_policy" "tenant_prefix" {
+  count  = var.file_bucket_name != "" ? 1 : 0
+  bucket = var.file_bucket_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "TenantPrefixAccess-${var.tenant_id}"
+        Effect    = "Allow"
+        Principal = { AWS = var.task_role_arn }
+        Action    = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Resource  = "${var.file_bucket_arn}/tenants/${var.tenant_id}/*"
+      },
+      {
+        Sid       = "TenantPrefixList-${var.tenant_id}"
+        Effect    = "Allow"
+        Principal = { AWS = var.task_role_arn }
+        Action    = ["s3:ListBucket"]
+        Resource  = var.file_bucket_arn
+        Condition = {
+          StringLike = {
+            "s3:prefix" = ["tenants/${var.tenant_id}/*"]
+          }
+        }
+      }
+    ]
+  })
+}
+
 # ─── 테넌트 전용 RDS (Aurora Serverless v2) ──────────────────────────────────
 
 resource "aws_rds_cluster" "tenant" {
@@ -21,7 +118,7 @@ resource "aws_rds_cluster" "tenant" {
   master_password = var.db_password
 
   db_subnet_group_name   = var.db_subnet_group_name
-  vpc_security_group_ids = [var.rds_security_group_id]
+  vpc_security_group_ids = [local.rds_security_group_id]
 
   storage_encrypted   = true
   deletion_protection = var.environment == "prod"
@@ -157,7 +254,7 @@ resource "aws_ecs_service" "tenant" {
 
   network_configuration {
     subnets          = var.private_subnet_ids
-    security_groups  = [var.ecs_security_group_id]
+    security_groups  = [local.ecs_security_group_id]
     assign_public_ip = false
   }
 

@@ -22,6 +22,9 @@ export class SubscriptionEntity extends BaseEntity {
   @Column({ name: 'status', type: 'varchar', length: 50, default: 'TRIAL' })
   status: SubscriptionStatus;
 
+  @Column({ name: 'plan_type', type: 'varchar', length: 50, default: 'MONTHLY' })
+  planType: string;
+
   @Column({ name: 'stripe_customer_id', type: 'varchar', length: 100, nullable: true })
   stripeCustomerId: string | null;
 
@@ -72,6 +75,18 @@ export class SubscriptionEntity extends BaseEntity {
       throw new InvalidStateTransitionException(this.status, 'PAST_DUE');
     }
     this.status = 'PAST_DUE';
+  }
+
+  /**
+   * 결제 성공으로 PAST_DUE에서 ACTIVE로 복구한다.
+   *
+   * @throws InvalidStateTransitionException PAST_DUE 상태가 아닌 경우
+   */
+  reactivate(): void {
+    if (this.status !== 'PAST_DUE') {
+      throw new InvalidStateTransitionException(this.status, 'ACTIVE');
+    }
+    this.status = 'ACTIVE';
   }
 
   /**

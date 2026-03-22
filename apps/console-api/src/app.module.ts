@@ -14,6 +14,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { CommonCodeModule } from './modules/common-code/common-code.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { AdminModule } from './modules/admin/admin.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -68,6 +69,7 @@ import * as Joi from 'joi';
     MonitoringModule,
     BillingModule,
     BackupModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

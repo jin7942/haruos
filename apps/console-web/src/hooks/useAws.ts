@@ -10,6 +10,15 @@ export function useCfnTemplateUrl(tenantId: string) {
   });
 }
 
+/** CloudFormation 1클릭 Quick Create URL 조회 훅. */
+export function useCfnLaunchUrl(tenantId: string, region?: string) {
+  return useQuery({
+    queryKey: ['aws', tenantId, 'cfn-launch', region],
+    queryFn: () => awsApi.getCfnLaunchUrl(tenantId, region),
+    enabled: !!tenantId,
+  });
+}
+
 /** AWS 자격증명 조회 훅. */
 export function useAwsCredential(tenantId: string) {
   return useQuery({

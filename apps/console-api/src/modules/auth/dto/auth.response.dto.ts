@@ -12,12 +12,16 @@ export class UserSummaryVo {
   @ApiProperty()
   name: string;
 
+  @ApiProperty({ example: 'USER', enum: ['USER', 'ADMIN'] })
+  role: string;
+
   /** @param user - UserEntity에서 변환 */
   static from(user: UserEntity): UserSummaryVo {
     const vo = new UserSummaryVo();
     vo.id = user.id;
     vo.email = user.email;
     vo.name = user.name;
+    vo.role = user.role;
     return vo;
   }
 }
