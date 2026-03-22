@@ -65,3 +65,22 @@ export function useResumeTenant() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: TENANTS_KEY }),
   });
 }
+
+/** 테넌트 사양 변경 mutation. */
+export function useScaleTenant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, planType }: { id: string; planType: string }) =>
+      tenantApi.scale(id, planType),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TENANTS_KEY }),
+  });
+}
+
+/** 앱 버전 업데이트 mutation. */
+export function useTriggerUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tenantApi.triggerUpdate(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TENANTS_KEY }),
+  });
+}

@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { ProvisioningPanel } from '../components/provisioning/ProvisioningPanel';
 import { formatDate } from '@haruos/shared-utils';
 import type { BadgeVariant } from '../types/ui';
 
@@ -26,7 +27,7 @@ function getStatusLabel(status: string): string {
   }
 }
 
-type Tab = 'info' | 'monitoring' | 'settings';
+type Tab = 'info' | 'provisioning' | 'monitoring' | 'settings';
 
 /** 테넌트 상세 페이지. 정보/모니터링/설정 탭 구성. */
 export function TenantDetailPage() {
@@ -74,6 +75,7 @@ export function TenantDetailPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'info', label: '정보' },
+    { key: 'provisioning', label: '프로비저닝' },
     { key: 'monitoring', label: '모니터링' },
     { key: 'settings', label: '설정' },
   ];
@@ -184,7 +186,12 @@ export function TenantDetailPage() {
         </Card>
       )}
 
-      {/* 모니터링 탭 - Task #4에서 구현 */}
+      {/* 프로비저닝 탭 */}
+      {tab === 'provisioning' && (
+        <ProvisioningPanel tenantId={tenant.id} />
+      )}
+
+      {/* 모니터링 탭 */}
       {tab === 'monitoring' && (
         <Link to={`/tenants/${tenant.id}/monitoring`}>
           <Card className="text-center py-8">

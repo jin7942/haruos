@@ -4,6 +4,7 @@ import { Request } from 'express';
 import { TenantService } from './tenant.service';
 import { CreateTenantRequestDto } from './dto/create-tenant.request.dto';
 import { UpdateTenantRequestDto } from './dto/update-tenant.request.dto';
+import { ScaleTenantRequestDto } from './dto/scale-tenant.request.dto';
 import { TenantResponseDto } from './dto/tenant.response.dto';
 
 @ApiTags('Tenant')
@@ -63,5 +64,23 @@ export class TenantController {
   @ApiResponse({ status: 201, type: TenantResponseDto })
   resume(@Req() req: Request, @Param('id') id: string): Promise<TenantResponseDto> {
     return this.tenantService.resume((req as any).user.sub, id);
+  }
+
+  @Post(':id/scale')
+  @ApiOperation({ summary: '프로젝트 사양 변경 (플랜 타입 변경)' })
+  @ApiResponse({ status: 201, type: TenantResponseDto })
+  scale(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: ScaleTenantRequestDto,
+  ): Promise<TenantResponseDto> {
+    return this.tenantService.scale((req as any).user.sub, id, dto.planType);
+  }
+
+  @Post(':id/update')
+  @ApiOperation({ summary: '앱 버전 업데이트 (롤링 업데이트 트리거)' })
+  @ApiResponse({ status: 201, type: TenantResponseDto })
+  triggerUpdate(@Req() req: Request, @Param('id') id: string): Promise<TenantResponseDto> {
+    return this.tenantService.triggerUpdate((req as any).user.sub, id);
   }
 }

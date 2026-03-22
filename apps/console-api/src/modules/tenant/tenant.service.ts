@@ -8,6 +8,7 @@ import { TenantResponseDto } from './dto/tenant.response.dto';
 import {
   ResourceNotFoundException,
   DuplicateResourceException,
+  InvalidStateTransitionException,
 } from '../../common/exceptions/business.exception';
 
 @Injectable()
@@ -132,6 +133,47 @@ export class TenantService {
     const tenant = await this.findOwnedTenant(userId, tenantId);
     tenant.resume();
     await this.tenantRepository.save(tenant);
+    return TenantResponseDto.from(tenant);
+  }
+
+  /**
+   * 테넌트 사양 변경 (플랜 타입 변경).
+   * ACTIVE 상태에서만 가능.
+   *
+   * @param userId - JWT에서 추출한 소유자 ID
+   * @param tenantId - 테넌트 ID
+   * @param planType - 변경할 플랜 타입
+   * @returns 변경된 테넌트 정보
+   * @throws ResourceNotFoundException 테넌트가 없거나 소유자가 아닌 경우
+   * @throws InvalidStateTransitionException ACTIVE 상태가 아닌 경우
+   */
+  async scale(userId: string, tenantId: string, planType: string): Promise<TenantResponseDto> {
+    const tenant = await this.findOwnedTenant(userId, tenantId);
+    if (tenant.status !== 'ACTIVE') {
+      throw new InvalidStateTransitionException(tenant.status, 'SCALE');
+    }
+    tenant.plan = planType;
+    await this.tenantRepository.save(tenant);
+    return TenantResponseDto.from(tenant);
+  }
+
+  /**
+   * 앱 버전 업데이트 (롤링 업데이트 트리거).
+   * ACTIVE 상태에서만 가능. 실제 ECS 롤링 업데이트는 프로비저너에서 처리.
+   *
+   * @param userId - JWT에서 추출한 소유자 ID
+   * @param tenantId - 테넌트 ID
+   * @returns 테넌트 정보
+   * @throws ResourceNotFoundException 테넌트가 없거나 소유자가 아닌 경우
+   * @throws InvalidStateTransitionException ACTIVE 상태가 아닌 경우
+   */
+  async triggerUpdate(userId: string, tenantId: string): Promise<TenantResponseDto> {
+    const tenant = await this.findOwnedTenant(userId, tenantId);
+    if (tenant.status !== 'ACTIVE') {
+      throw new InvalidStateTransitionException(tenant.status, 'UPDATE');
+    }
+    // 롤링 업데이트는 프로비저너 모듈에서 처리.
+    // 여기서는 소유권 검증만 수행하고 현재 상태를 반환.
     return TenantResponseDto.from(tenant);
   }
 

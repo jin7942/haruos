@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Observable, interval, switchMap, takeWhile, map, startWith, distinctUntilChanged } from 'rxjs';
 import { TerraformPort } from './ports/terraform.port';
 import { AnsiblePort } from './ports/ansible.port';
 import { DnsPort } from './ports/dns.port';
@@ -129,6 +130,91 @@ export class ProvisionerFacade {
     });
 
     return ProvisioningJobResponseDto.from(job);
+  }
+
+  /**
+   * 프로비저닝 상태를 SSE 스트리밍으로 전송한다.
+   * 2초 간격으로 DB를 폴링하여 상태 변경을 감지한다.
+   * 작업이 완료/실패되면 스트림을 종료한다.
+   *
+   * @param tenantId - 테넌트 ID
+   * @returns SSE MessageEvent Observable
+   */
+  streamStatus(tenantId: string): Observable<MessageEvent> {
+    const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'ROLLED_BACK'];
+
+    return new Observable<MessageEvent>((subscriber) => {
+      let lastStatus = '';
+      let lastCompletedSteps = -1;
+
+      const sub = interval(2000)
+        .pipe(startWith(0))
+        .subscribe(async () => {
+          try {
+            const job = await this.jobRepository.findOne({
+              where: { tenantId },
+              order: { createdAt: 'DESC' },
+            });
+
+            if (!job) {
+              subscriber.next(
+                new MessageEvent('error', {
+                  data: JSON.stringify({ message: 'Provisioning job not found' }),
+                }),
+              );
+              subscriber.complete();
+              sub.unsubscribe();
+              return;
+            }
+
+            // 상태 변경 또는 단계 진행 시에만 이벤트 전송
+            if (job.status !== lastStatus || job.completedSteps !== lastCompletedSteps) {
+              lastStatus = job.status;
+              lastCompletedSteps = job.completedSteps;
+
+              const dto = ProvisioningJobResponseDto.from(job);
+              subscriber.next(
+                new MessageEvent('status', { data: JSON.stringify(dto) }),
+              );
+
+              // 최근 로그도 함께 전송
+              const logs = await this.logRepository.find({
+                where: { jobId: job.id },
+                order: { createdAt: 'DESC' },
+                take: 1,
+              });
+              if (logs.length > 0) {
+                subscriber.next(
+                  new MessageEvent('log', {
+                    data: JSON.stringify(ProvisioningLogResponseDto.from(logs[0])),
+                  }),
+                );
+              }
+
+              // 터미널 상태이면 완료
+              if (TERMINAL_STATUSES.includes(job.status)) {
+                subscriber.next(
+                  new MessageEvent('done', {
+                    data: JSON.stringify({ status: job.status }),
+                  }),
+                );
+                subscriber.complete();
+                sub.unsubscribe();
+              }
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`SSE stream error for tenant ${tenantId}: ${message}`);
+            subscriber.next(
+              new MessageEvent('error', { data: JSON.stringify({ message }) }),
+            );
+            subscriber.complete();
+            sub.unsubscribe();
+          }
+        });
+
+      return () => sub.unsubscribe();
+    });
   }
 
   /**

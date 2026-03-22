@@ -43,4 +43,12 @@ export const tenantApi = {
   /** 테넌트 재개. */
   resume: (id: string) =>
     apiClient.post<TenantResponse>(`/tenants/${id}/resume`).then((r) => r.data),
+
+  /** 테넌트 사양 변경 (플랜 타입 변경). */
+  scale: (id: string, planType: string) =>
+    apiClient.post<TenantResponse>(`/tenants/${id}/scale`, { planType }).then((r) => r.data),
+
+  /** 앱 버전 업데이트 (롤링 업데이트 트리거). */
+  triggerUpdate: (id: string) =>
+    apiClient.post<TenantResponse>(`/tenants/${id}/update`).then((r) => r.data),
 };

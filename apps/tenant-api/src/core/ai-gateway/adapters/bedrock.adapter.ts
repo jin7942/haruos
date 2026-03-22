@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Observable, interval, take, map, concatWith, of } from 'rxjs';
 import { AiModelPort } from '../ports/ai-model.port';
 import { ChatMessageDto, AiOptionsDto } from '../dto/ai-chat.request.dto';
 import { AiChatResponseDto, IntentResultDto } from '../dto/ai-chat.response.dto';
@@ -20,6 +21,16 @@ export class BedrockAdapter extends AiModelPort {
       'anthropic.claude-3-sonnet',
       messages.reduce((sum, m) => sum + m.content.length, 0),
       20,
+    );
+  }
+
+  /** {@inheritDoc AiModelPort.streamChat} */
+  streamChat(messages: ChatMessageDto[], _options?: AiOptionsDto): Observable<string> {
+    this.logger.warn('[Stub] Bedrock streamChat 호출. 프로덕션에서는 실제 스트리밍 API로 교체.');
+    const chunks = ['[Stub] ', 'AI ', '스트리밍 ', '응답', '입니다.'];
+    return interval(100).pipe(
+      take(chunks.length),
+      map((i) => chunks[i]),
     );
   }
 

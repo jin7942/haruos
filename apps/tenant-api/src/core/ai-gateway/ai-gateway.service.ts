@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { AiModelPort } from './ports/ai-model.port';
 import { ChatMessageDto, AiOptionsDto } from './dto/ai-chat.request.dto';
 import { AiChatResponseDto, IntentResultDto } from './dto/ai-chat.response.dto';
@@ -21,6 +22,17 @@ export class AiGatewayService {
    */
   async chat(messages: ChatMessageDto[], options?: AiOptionsDto): Promise<AiChatResponseDto> {
     return this.aiModel.chat(messages, options);
+  }
+
+  /**
+   * 대화 메시지 기반 AI 응답을 스트리밍으로 생성.
+   *
+   * @param messages - 대화 메시지 목록
+   * @param options - 모델 호출 옵션
+   * @returns 텍스트 청크 Observable
+   */
+  streamChat(messages: ChatMessageDto[], options?: AiOptionsDto): Observable<string> {
+    return this.aiModel.streamChat(messages, options);
   }
 
   /**

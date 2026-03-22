@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Req, Sse } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
+import { Observable } from 'rxjs';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { ContextManagerService } from './context/context-manager.service';
 import { ChatRequestDto } from './orchestrator/dto/chat.request.dto';
@@ -34,6 +35,25 @@ export class HaruController {
   chat(@Body() dto: ChatRequestDto, @Req() req: Request): Promise<ChatResponseDto> {
     const userId = (req as any).user.sub;
     return this.orchestrator.processMessage(userId, dto);
+  }
+
+  /**
+   * 대화 메시지를 전송하고 AI 응답을 SSE 스트리밍으로 받는다.
+   * 이벤트 타입: meta (메타정보), chunk (텍스트 청크), done (완료), error (에러).
+   *
+   * @param dto - 대화 요청 (메시지, 대화 ID)
+   * @param req - HTTP 요청 (JWT에서 userId 추출)
+   * @returns SSE MessageEvent 스트림
+   */
+  @Post('chat/stream')
+  @ApiOperation({ summary: '대화 메시지 전송 (SSE 스트리밍)' })
+  @Sse()
+  async chatStream(
+    @Body() dto: ChatRequestDto,
+    @Req() req: Request,
+  ): Promise<Observable<MessageEvent>> {
+    const userId = (req as any).user.sub;
+    return this.orchestrator.processMessageStream(userId, dto);
   }
 
   /**

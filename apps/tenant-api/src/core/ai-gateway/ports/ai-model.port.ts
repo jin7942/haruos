@@ -1,3 +1,4 @@
+import { Observable } from 'rxjs';
 import { ChatMessageDto, AiOptionsDto } from '../dto/ai-chat.request.dto';
 import { AiChatResponseDto, IntentResultDto } from '../dto/ai-chat.response.dto';
 
@@ -15,6 +16,16 @@ export abstract class AiModelPort {
    * @returns AI 응답 (텍스트, 모델, 토큰 사용량)
    */
   abstract chat(messages: ChatMessageDto[], options?: AiOptionsDto): Promise<AiChatResponseDto>;
+
+  /**
+   * 대화 메시지 기반 AI 응답을 스트리밍으로 생성.
+   * 청크 단위로 텍스트를 전송한다.
+   *
+   * @param messages - 대화 메시지 목록
+   * @param options - 모델 호출 옵션 (maxTokens, temperature)
+   * @returns 텍스트 청크 Observable
+   */
+  abstract streamChat(messages: ChatMessageDto[], options?: AiOptionsDto): Observable<string>;
 
   /**
    * 텍스트 요약.

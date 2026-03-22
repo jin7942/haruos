@@ -12,6 +12,11 @@ export interface ProvisioningJobResponse {
   createdAt: string;
 }
 
+/** 프로비저닝 SSE 완료 이벤트 데이터. */
+export interface ProvisioningStreamDone {
+  status: string;
+}
+
 /** 프로비저닝 로그 응답. */
 export interface ProvisioningLogResponse {
   id: string;

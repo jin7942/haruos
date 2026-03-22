@@ -37,6 +37,17 @@ export interface ParsedIntent {
   confidence: number;
 }
 
+/** SSE 스트리밍 메타 이벤트 데이터. */
+export interface ChatStreamMeta {
+  conversationId: string;
+  agent: string;
+}
+
+/** SSE 스트리밍 완료 이벤트 데이터. */
+export interface ChatStreamDone {
+  conversationId: string;
+}
+
 /** 배치 작업 응답. */
 export interface BatchJobResponse {
   id: string;

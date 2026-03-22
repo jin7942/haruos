@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { AiGatewayService } from '../../core/ai-gateway/ai-gateway.service';
 import { ChatMessageDto } from '../../core/ai-gateway/dto/ai-chat.request.dto';
 import { ParsedIntent } from './intent-parser.service';
@@ -51,6 +52,19 @@ export class AgentRouterService {
   }
 
   /**
+   * 인텐트에 따라 AI 스트리밍 응답을 생성한다.
+   *
+   * @param intent - 파싱된 인텐트
+   * @param message - 원본 사용자 메시지
+   * @param context - 대화 맥락 메시지 목록
+   * @returns 텍스트 청크 Observable
+   */
+  routeStream(intent: ParsedIntent, message: string, context: ChatMessageDto[]): Observable<string> {
+    this.logger.log(`Streaming route to agent: ${intent.agent} (intent: ${intent.intent})`);
+    return this.streamWithAi(intent, message, context);
+  }
+
+  /**
    * AI 모델을 직접 호출하여 대화 응답을 생성한다.
    * 에이전트가 아직 구현되지 않았거나 일반 대화인 경우 사용.
    */
@@ -77,6 +91,28 @@ export class AgentRouterService {
       agent: intent.agent,
       actions: [],
     };
+  }
+
+  /**
+   * AI 모델을 직접 호출하여 스트리밍 응답을 생성한다.
+   */
+  private streamWithAi(
+    intent: ParsedIntent,
+    message: string,
+    context: ChatMessageDto[],
+  ): Observable<string> {
+    const systemPrompt: ChatMessageDto = {
+      role: 'system',
+      content: this.buildSystemPrompt(intent),
+    };
+
+    const userMessage: ChatMessageDto = {
+      role: 'user',
+      content: message,
+    };
+
+    const messages = [systemPrompt, ...context, userMessage];
+    return this.aiGateway.streamChat(messages);
   }
 
   /**
