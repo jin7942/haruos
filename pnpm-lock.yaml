@@ -117,6 +117,9 @@ importers:
       '@haruos/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@haruos/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
       '@tanstack/react-query':
         specifier: ^5.75.0
         version: 5.91.3(react@18.3.1)
@@ -315,6 +318,13 @@ importers:
         version: 5.9.3
 
   packages/shared-utils:
+    dependencies:
+      '@haruos/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      axios:
+        specifier: ^1.7.0
+        version: 1.13.6
     devDependencies:
       typescript:
         specifier: ^5.8.0

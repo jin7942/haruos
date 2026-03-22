@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@haruos/shared-types": "workspace:*",
+    "@haruos/shared-utils": "workspace:*",
     "@tanstack/react-query": "^5.75.0",
     "axios": "^1.8.0",
     "react": "^18.3.0",
