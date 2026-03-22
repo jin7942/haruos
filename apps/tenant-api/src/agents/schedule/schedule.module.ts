@@ -3,9 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleController } from './schedule.controller';
 import { ScheduleAgentService } from './schedule-agent.service';
 import { Schedule } from './entities/schedule.entity';
+import { ClickUpModule } from '../../core/clickup/clickup.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Schedule])],
+  imports: [
+    TypeOrmModule.forFeature([Schedule]),
+    ClickUpModule,
+  ],
   controllers: [ScheduleController],
   providers: [ScheduleAgentService],
   exports: [ScheduleAgentService],

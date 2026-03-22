@@ -1,0 +1,127 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { FileAgentService } from './file-agent.service';
+import { FileRecordEntity } from './entities/file-record.entity';
+import { StorageService } from '../../core/storage/storage.service';
+import { ResourceNotFoundException } from '../../common/exceptions/business.exception';
+
+describe('FileAgentService', () => {
+  let service: FileAgentService;
+  let fileRepo: jest.Mocked<Repository<FileRecordEntity>>;
+  let storageService: jest.Mocked<StorageService>;
+
+  const mockFileRecord: Partial<FileRecordEntity> = {
+    id: 'f-1',
+    userId: 'user-1',
+    fileName: 'test.pdf',
+    s3Key: 'files/user-1/uuid/test.pdf',
+    mimeType: 'application/pdf',
+    size: '1024',
+    uploadedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FileAgentService,
+        {
+          provide: getRepositoryToken(FileRecordEntity),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            remove: jest.fn(),
+          },
+        },
+        {
+          provide: StorageService,
+          useValue: {
+            upload: jest.fn(),
+            delete: jest.fn(),
+            getFileInfo: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get(FileAgentService);
+    fileRepo = module.get(getRepositoryToken(FileRecordEntity));
+    storageService = module.get(StorageService);
+  });
+
+  describe('uploadFile', () => {
+    it('파일을 S3에 업로드하고 레코드를 생성한다', async () => {
+      const buffer = Buffer.from('file content');
+      storageService.upload.mockResolvedValue(undefined);
+      fileRepo.create.mockReturnValue(mockFileRecord as FileRecordEntity);
+      fileRepo.save.mockResolvedValue(mockFileRecord as FileRecordEntity);
+
+      const result = await service.uploadFile('user-1', 'test.pdf', buffer, 'application/pdf');
+
+      expect(result.fileName).toBe('test.pdf');
+      expect(storageService.upload).toHaveBeenCalledWith(
+        expect.stringContaining('files/user-1/'),
+        buffer,
+        'application/pdf',
+      );
+    });
+  });
+
+  describe('getFiles', () => {
+    it('사용자의 파일 목록을 반환한다', async () => {
+      fileRepo.find.mockResolvedValue([mockFileRecord as FileRecordEntity]);
+
+      const result = await service.getFiles('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(fileRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1' },
+        }),
+      );
+    });
+  });
+
+  describe('getFileUrl', () => {
+    it('파일의 Presigned URL을 반환한다', async () => {
+      fileRepo.findOne.mockResolvedValue(mockFileRecord as FileRecordEntity);
+      storageService.getFileInfo.mockResolvedValue({
+        key: mockFileRecord.s3Key!,
+        url: 'https://s3.amazonaws.com/presigned-url',
+      });
+
+      const result = await service.getFileUrl('f-1');
+
+      expect(result).toBe('https://s3.amazonaws.com/presigned-url');
+    });
+
+    it('존재하지 않는 파일 URL 조회 시 ResourceNotFoundException을 던진다', async () => {
+      fileRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.getFileUrl('not-found')).rejects.toThrow(ResourceNotFoundException);
+    });
+  });
+
+  describe('deleteFile', () => {
+    it('파일을 S3에서 삭제하고 레코드를 제거한다', async () => {
+      fileRepo.findOne.mockResolvedValue(mockFileRecord as FileRecordEntity);
+      storageService.delete.mockResolvedValue(undefined);
+      fileRepo.remove.mockResolvedValue(mockFileRecord as FileRecordEntity);
+
+      await service.deleteFile('f-1');
+
+      expect(storageService.delete).toHaveBeenCalledWith(mockFileRecord.s3Key);
+      expect(fileRepo.remove).toHaveBeenCalled();
+    });
+
+    it('존재하지 않는 파일 삭제 시 ResourceNotFoundException을 던진다', async () => {
+      fileRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.deleteFile('not-found')).rejects.toThrow(ResourceNotFoundException);
+    });
+  });
+});
