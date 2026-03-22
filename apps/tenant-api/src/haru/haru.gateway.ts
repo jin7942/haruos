@@ -14,7 +14,7 @@ import { Server, Socket } from 'socket.io';
  * handleConnection에서 JWT 토큰을 검증하여 인증된 사용자만 연결을 허용한다.
  */
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5173' },
   namespace: '/ws/haru',
 })
 export class HaruGateway implements OnGatewayConnection, OnGatewayDisconnect {

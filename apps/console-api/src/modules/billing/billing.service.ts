@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SubscriptionEntity } from './entities/subscription.entity';
+import { TenantEntity } from '../tenant/entities/tenant.entity';
 import { PaymentPort, WebhookEvent, InvoiceItem } from './ports/payment.port';
 import { CreateSubscriptionRequestDto } from './dto/create-subscription.request.dto';
 import { CreateCheckoutRequestDto } from './dto/create-checkout.request.dto';
@@ -10,6 +11,7 @@ import { SubscriptionResponseDto } from './dto/subscription.response.dto';
 import {
   ResourceNotFoundException,
   DuplicateResourceException,
+  UnauthorizedException,
 } from '../../common/exceptions/business.exception';
 
 /**
@@ -23,6 +25,8 @@ export class BillingService {
   constructor(
     @InjectRepository(SubscriptionEntity)
     private readonly subscriptionRepository: Repository<SubscriptionEntity>,
+    @InjectRepository(TenantEntity)
+    private readonly tenantRepository: Repository<TenantEntity>,
     private readonly paymentPort: PaymentPort,
   ) {}
 
@@ -294,5 +298,21 @@ export class BillingService {
       throw new ResourceNotFoundException('Subscription', tenantId);
     }
     return subscription;
+  }
+
+  /**
+   * 테넌트 소유권을 검증한다.
+   *
+   * @param userId - JWT에서 추출한 사용자 ID
+   * @param tenantId - 테넌트 ID
+   * @throws UnauthorizedException 소유자가 아닌 경우
+   */
+  async verifyTenantOwnership(userId: string, tenantId: string): Promise<void> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId, userId },
+    });
+    if (!tenant) {
+      throw new UnauthorizedException('Not the owner of this tenant');
+    }
   }
 }

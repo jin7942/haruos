@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BillingService } from './billing.service';
 import { SubscriptionEntity } from './entities/subscription.entity';
+import { TenantEntity } from '../tenant/entities/tenant.entity';
 import { PaymentPort } from './ports/payment.port';
 import { CreateSubscriptionRequestDto } from './dto/create-subscription.request.dto';
 import { CreateCheckoutRequestDto } from './dto/create-checkout.request.dto';
@@ -11,14 +12,17 @@ import {
   ResourceNotFoundException,
   DuplicateResourceException,
   InvalidStateTransitionException,
+  UnauthorizedException,
 } from '../../common/exceptions/business.exception';
 
 describe('BillingService', () => {
   let service: BillingService;
   let subscriptionRepo: jest.Mocked<Repository<SubscriptionEntity>>;
+  let tenantRepo: jest.Mocked<Repository<TenantEntity>>;
   let paymentPort: jest.Mocked<PaymentPort>;
 
   const tenantId = 'tenant-uuid-1';
+  const userId = 'user-uuid-1';
 
   /** TRIAL 상태의 구독 엔티티를 생성한다. */
   function createTrialSubscription(): SubscriptionEntity {
@@ -69,6 +73,12 @@ describe('BillingService', () => {
           },
         },
         {
+          provide: getRepositoryToken(TenantEntity),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
           provide: PaymentPort,
           useValue: {
             createCustomer: jest.fn(),
@@ -86,6 +96,7 @@ describe('BillingService', () => {
 
     service = module.get<BillingService>(BillingService);
     subscriptionRepo = module.get(getRepositoryToken(SubscriptionEntity));
+    tenantRepo = module.get(getRepositoryToken(TenantEntity));
     paymentPort = module.get(PaymentPort) as jest.Mocked<PaymentPort>;
   });
 
@@ -341,6 +352,25 @@ describe('BillingService', () => {
       await service.handleWebhook(payload, signature);
 
       expect(subscriptionRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyTenantOwnership', () => {
+    it('소유자가 맞으면 정상 통과한다', async () => {
+      tenantRepo.findOne.mockResolvedValue({ id: tenantId, userId } as TenantEntity);
+
+      await expect(service.verifyTenantOwnership(userId, tenantId)).resolves.toBeUndefined();
+      expect(tenantRepo.findOne).toHaveBeenCalledWith({
+        where: { id: tenantId, userId },
+      });
+    });
+
+    it('소유자가 아니면 UnauthorizedException을 던진다', async () => {
+      tenantRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.verifyTenantOwnership('other-user', tenantId)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 

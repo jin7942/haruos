@@ -139,8 +139,9 @@ export class NasOrganizerService {
       }
     }
 
-    // 원본 ZIP 상태 업데이트
-    await this.fileRepository.update(fileId, { status: 'EXTRACTED' });
+    // 원본 ZIP 상태 업데이트 (비즈니스 메서드로 전이)
+    file.markExtracted();
+    await this.fileRepository.save(file);
 
     this.logger.log(`ZIP 해제 완료: fileId=${fileId}, entries=${extractedCount}`);
     return extractedCount;

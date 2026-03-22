@@ -11,6 +11,7 @@ import { Public } from '../../common/decorators/public.decorator';
 /**
  * 구독 결제 컨트롤러.
  * 구독 CRUD, Stripe Checkout/Portal, 웹훅 처리 API를 제공한다.
+ * 모든 테넌트 데이터 접근 시 JWT userId로 소유권을 검증한다.
  */
 @ApiTags('Billing')
 @Controller('billing')
@@ -20,6 +21,7 @@ export class BillingController {
   /**
    * 구독을 생성한다.
    *
+   * @param req - HTTP 요청 (JWT userId 추출)
    * @param dto - 구독 생성 요청
    * @returns 생성된 구독 정보
    */
@@ -28,13 +30,15 @@ export class BillingController {
   @ApiOperation({ summary: '구독 생성' })
   @ApiResponse({ status: 201, type: SubscriptionResponseDto })
   @ApiResponse({ status: 409, description: '이미 활성 구독이 존재' })
-  createSubscription(@Body() dto: CreateSubscriptionRequestDto): Promise<SubscriptionResponseDto> {
+  async createSubscription(@Req() req: Request, @Body() dto: CreateSubscriptionRequestDto): Promise<SubscriptionResponseDto> {
+    await this.billingService.verifyTenantOwnership((req as any).user.sub, dto.tenantId);
     return this.billingService.createSubscription(dto);
   }
 
   /**
    * 테넌트의 구독 정보를 조회한다.
    *
+   * @param req - HTTP 요청 (JWT userId 추출)
    * @param tenantId - 테넌트 ID
    * @returns 구독 정보
    */
@@ -43,13 +47,15 @@ export class BillingController {
   @ApiOperation({ summary: '구독 조회' })
   @ApiResponse({ status: 200, type: SubscriptionResponseDto })
   @ApiResponse({ status: 404, description: '구독 없음' })
-  getSubscription(@Param('tenantId') tenantId: string): Promise<SubscriptionResponseDto> {
+  async getSubscription(@Req() req: Request, @Param('tenantId') tenantId: string): Promise<SubscriptionResponseDto> {
+    await this.billingService.verifyTenantOwnership((req as any).user.sub, tenantId);
     return this.billingService.getSubscription(tenantId);
   }
 
   /**
    * 테넌트의 구독을 취소한다.
    *
+   * @param req - HTTP 요청 (JWT userId 추출)
    * @param tenantId - 테넌트 ID
    * @returns 취소된 구독 정보
    */
@@ -58,7 +64,8 @@ export class BillingController {
   @ApiOperation({ summary: '구독 취소' })
   @ApiResponse({ status: 200, type: SubscriptionResponseDto })
   @ApiResponse({ status: 404, description: '활성 구독 없음' })
-  cancelSubscription(@Param('tenantId') tenantId: string): Promise<SubscriptionResponseDto> {
+  async cancelSubscription(@Req() req: Request, @Param('tenantId') tenantId: string): Promise<SubscriptionResponseDto> {
+    await this.billingService.verifyTenantOwnership((req as any).user.sub, tenantId);
     return this.billingService.cancelSubscription(tenantId);
   }
 
@@ -66,6 +73,7 @@ export class BillingController {
    * Stripe Checkout 세션을 생성한다.
    * 프론트엔드에서 반환된 URL로 리다이렉트하여 결제 진행.
    *
+   * @param req - HTTP 요청 (JWT userId 추출)
    * @param dto - 체크아웃 요청
    * @returns checkoutUrl
    */
@@ -73,7 +81,8 @@ export class BillingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Stripe Checkout 세션 생성' })
   @ApiResponse({ status: 201, description: 'Checkout URL 반환' })
-  createCheckoutSession(@Body() dto: CreateCheckoutRequestDto): Promise<{ checkoutUrl: string }> {
+  async createCheckoutSession(@Req() req: Request, @Body() dto: CreateCheckoutRequestDto): Promise<{ checkoutUrl: string }> {
+    await this.billingService.verifyTenantOwnership((req as any).user.sub, dto.tenantId);
     return this.billingService.createCheckoutSession(dto);
   }
 
@@ -81,6 +90,7 @@ export class BillingController {
    * Stripe Customer Portal 세션을 생성한다.
    * 결제수단 변경, 인보이스 확인 등을 위한 포털.
    *
+   * @param req - HTTP 요청 (JWT userId 추출)
    * @param dto - 포털 요청
    * @returns portalUrl
    */
@@ -88,13 +98,15 @@ export class BillingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Stripe Customer Portal 세션 생성' })
   @ApiResponse({ status: 201, description: 'Portal URL 반환' })
-  createPortalSession(@Body() dto: CreatePortalRequestDto): Promise<{ portalUrl: string }> {
+  async createPortalSession(@Req() req: Request, @Body() dto: CreatePortalRequestDto): Promise<{ portalUrl: string }> {
+    await this.billingService.verifyTenantOwnership((req as any).user.sub, dto.tenantId);
     return this.billingService.createPortalSession(dto);
   }
 
   /**
    * 테넌트의 인보이스 목록을 조회한다.
    *
+   * @param req - HTTP 요청 (JWT userId 추출)
    * @param tenantId - 테넌트 ID
    * @param limit - 조회 개수
    * @returns 인보이스 목록
@@ -102,10 +114,12 @@ export class BillingController {
   @Get('invoices/:tenantId')
   @ApiBearerAuth()
   @ApiOperation({ summary: '인보이스 목록 조회' })
-  getInvoices(
+  async getInvoices(
+    @Req() req: Request,
     @Param('tenantId') tenantId: string,
     @Query('limit') limit?: string,
   ) {
+    await this.billingService.verifyTenantOwnership((req as any).user.sub, tenantId);
     return this.billingService.listInvoices(tenantId, limit ? parseInt(limit, 10) : 10);
   }
 

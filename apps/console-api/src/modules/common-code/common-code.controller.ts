@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CommonCodeService } from './common-code.service';
 import { CreateCodeGroupRequestDto } from './dto/create-code-group.request.dto';
@@ -6,6 +6,7 @@ import { CreateCodeRequestDto } from './dto/create-code.request.dto';
 import { CodeGroupResponseDto } from './dto/code-group.response.dto';
 import { CodeResponseDto } from './dto/code.response.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @ApiTags('Common Code')
 @Controller('codes')
@@ -29,16 +30,18 @@ export class CommonCodeController {
   }
 
   @Post('groups')
+  @UseGuards(AdminGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: '코드 그룹 생성' })
+  @ApiOperation({ summary: '코드 그룹 생성 (관리자 전용)' })
   @ApiResponse({ status: 201, type: CodeGroupResponseDto })
   createGroup(@Body() dto: CreateCodeGroupRequestDto): Promise<CodeGroupResponseDto> {
     return this.commonCodeService.createGroup(dto);
   }
 
   @Post()
+  @UseGuards(AdminGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: '코드 생성' })
+  @ApiOperation({ summary: '코드 생성 (관리자 전용)' })
   @ApiResponse({ status: 201, type: CodeResponseDto })
   createCode(@Body() dto: CreateCodeRequestDto): Promise<CodeResponseDto> {
     return this.commonCodeService.createCode(dto);

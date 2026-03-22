@@ -5,9 +5,10 @@ import { BillingService } from './billing.service';
 import { PaymentPort } from './ports/payment.port';
 import { StripeAdapter } from './adapters/stripe.adapter';
 import { SubscriptionEntity } from './entities/subscription.entity';
+import { TenantEntity } from '../tenant/entities/tenant.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SubscriptionEntity])],
+  imports: [TypeOrmModule.forFeature([SubscriptionEntity, TenantEntity])],
   controllers: [BillingController],
   providers: [
     BillingService,

@@ -100,7 +100,12 @@ describe('NasOrganizerService', () => {
     });
 
     it('유효한 STORED ZIP 파일을 해제한다', async () => {
-      const file = { id: 'f-1', s3Key: 'files/u/id/test.zip', uploadedBy: 'u-1' } as File;
+      const file = Object.assign(new File(), {
+        id: 'f-1',
+        s3Key: 'files/u/id/test.zip',
+        uploadedBy: 'u-1',
+        status: 'UPLOADED',
+      });
       fileRepo.findOne.mockResolvedValue(file);
 
       // STORED ZIP (compression method 0) 생성
