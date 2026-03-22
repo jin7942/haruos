@@ -15,11 +15,13 @@ import {
 export class ClickUpApiAdapter extends ClickUpApiPort {
   private readonly logger = new Logger(ClickUpApiAdapter.name);
 
+  /** {@inheritDoc ClickUpApiPort.getTasks} */
   async getTasks(listId: string): Promise<ClickUpTaskResponseDto[]> {
     this.logger.warn(`[Stub] ClickUp getTasks: listId=${listId}`);
     return [];
   }
 
+  /** {@inheritDoc ClickUpApiPort.createTask} */
   async createTask(dto: CreateClickUpTaskRequestDto): Promise<ClickUpTaskResponseDto> {
     this.logger.warn(`[Stub] ClickUp createTask: name=${dto.name}, listId=${dto.listId}`);
     return ClickUpTaskResponseDto.from({
@@ -33,6 +35,7 @@ export class ClickUpApiAdapter extends ClickUpApiPort {
     });
   }
 
+  /** {@inheritDoc ClickUpApiPort.updateTask} */
   async updateTask(
     taskId: string,
     data: Partial<CreateClickUpTaskRequestDto>,
@@ -46,11 +49,13 @@ export class ClickUpApiAdapter extends ClickUpApiPort {
     });
   }
 
+  /** {@inheritDoc ClickUpApiPort.getSpaces} */
   async getSpaces(): Promise<ClickUpSpaceResponseDto[]> {
     this.logger.warn('[Stub] ClickUp getSpaces');
     return [];
   }
 
+  /** {@inheritDoc ClickUpApiPort.getLists} */
   async getLists(spaceId: string): Promise<ClickUpListResponseDto[]> {
     this.logger.warn(`[Stub] ClickUp getLists: spaceId=${spaceId}`);
     return [];

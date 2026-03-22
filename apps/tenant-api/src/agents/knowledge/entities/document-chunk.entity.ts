@@ -1,6 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 
+/**
+ * 문서 청크 엔티티.
+ * RAG 검색을 위해 문서를 분할 저장한다. pgvector 임베딩 벡터를 포함 예정.
+ */
 @Entity('document_chunks')
 export class DocumentChunk extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')

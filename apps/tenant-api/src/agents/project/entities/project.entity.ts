@@ -1,6 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 
+/**
+ * 프로젝트 엔티티.
+ * ClickUp Space와 연동된 프로젝트 정보를 관리한다.
+ */
 @Entity('projects')
 export class Project extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')

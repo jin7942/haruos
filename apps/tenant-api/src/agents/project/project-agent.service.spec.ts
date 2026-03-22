@@ -65,13 +65,13 @@ describe('ProjectAgentService', () => {
       const space = ClickUpSpaceResponseDto.from('space-1', 'Updated Name');
       clickUpService.getSpaces.mockResolvedValue([space]);
 
-      const existing = {
+      const existing = Object.assign(new ProjectSyncEntity(), {
         id: 'sync-1',
         clickupSpaceId: 'space-1',
         name: 'Old Name',
         lastSyncAt: null,
         status: 'SYNCED',
-      } as ProjectSyncEntity;
+      });
       syncRepo.findOne.mockResolvedValue(existing);
       syncRepo.save.mockImplementation((entity) => Promise.resolve(entity as ProjectSyncEntity));
 

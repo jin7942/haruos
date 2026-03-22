@@ -1,6 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 
+/**
+ * 파일 엔티티.
+ * S3에 저장된 파일의 메타데이터를 관리한다.
+ */
 @Entity('files')
 export class File extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')

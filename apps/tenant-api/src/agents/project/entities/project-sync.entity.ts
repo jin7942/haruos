@@ -21,4 +21,22 @@ export class ProjectSyncEntity extends BaseEntity {
 
   @Column({ name: 'status', default: 'SYNCED' })
   status: string;
+
+  /**
+   * 동기화 성공 상태로 전이하고, 동기화 시각을 갱신한다.
+   *
+   * @param name - 동기화된 Space 이름
+   */
+  markSynced(name: string): void {
+    this.name = name;
+    this.lastSyncAt = new Date();
+    this.status = 'SYNCED';
+  }
+
+  /**
+   * 동기화 실패 상태로 전이한다.
+   */
+  markFailed(): void {
+    this.status = 'FAILED';
+  }
 }

@@ -10,6 +10,10 @@ import {
   DuplicateResourceException,
 } from '../../common/exceptions/business.exception';
 
+/**
+ * 구독 결제 서비스.
+ * PaymentPort를 통해 외부 결제 시스템과 연동하여 구독 생성/조회/취소를 처리한다.
+ */
 @Injectable()
 export class BillingService {
   constructor(

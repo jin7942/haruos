@@ -37,9 +37,7 @@ export class ProjectAgentService {
       });
 
       if (syncEntity) {
-        syncEntity.name = space.name;
-        syncEntity.lastSyncAt = new Date();
-        syncEntity.status = 'SYNCED';
+        syncEntity.markSynced(space.name);
       } else {
         syncEntity = this.projectSyncRepository.create({
           clickupSpaceId: space.id,

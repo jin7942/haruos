@@ -4,6 +4,10 @@ import { BillingService } from './billing.service';
 import { CreateSubscriptionRequestDto } from './dto/create-subscription.request.dto';
 import { SubscriptionResponseDto } from './dto/subscription.response.dto';
 
+/**
+ * 구독 결제 컨트롤러.
+ * 구독 생성/조회/취소 API를 제공한다.
+ */
 @ApiTags('Billing')
 @ApiBearerAuth()
 @Controller('billing')
