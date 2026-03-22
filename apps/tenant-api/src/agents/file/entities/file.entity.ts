@@ -22,18 +22,18 @@ export class File extends BaseEntity {
   @Column({ name: 'mime_type' })
   mimeType: string;
 
-  @Column({ name: 'category', nullable: true })
+  @Column({ name: 'category', type: 'varchar', nullable: true })
   category: string | null;
 
   @Column({ name: 'status' })
   status: string;
 
-  @Column({ name: 'project_id', nullable: true })
+  @Column({ name: 'project_id', type: 'varchar', nullable: true })
   projectId: string | null;
 
-  @Column({ name: 'parent_file_id', nullable: true })
+  @Column({ name: 'parent_file_id', type: 'varchar', nullable: true })
   parentFileId: string | null;
 
-  @Column({ name: 'uploaded_by' })
-  uploadedBy: string;
+  @Column({ name: 'uploaded_by', type: 'uuid', nullable: true })
+  uploadedBy: string | null;
 }

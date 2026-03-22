@@ -344,6 +344,20 @@ CREATE INDEX idx_clickup_sync_logs_entity ON clickup_sync_logs(entity_type, enti
 CREATE INDEX idx_clickup_sync_logs_created ON clickup_sync_logs(created_at);
 
 -- -------------------------------------------------------------
+-- 프로젝트 동기화
+-- -------------------------------------------------------------
+
+CREATE TABLE project_syncs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    clickup_space_id VARCHAR(50) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    last_sync_at TIMESTAMP,
+    status VARCHAR(50) NOT NULL DEFAULT 'SYNCED',
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- -------------------------------------------------------------
 -- DOCX 템플릿
 -- -------------------------------------------------------------
 

@@ -13,13 +13,15 @@ describe('ScheduleAgentService', () => {
 
   const mockSchedule: Partial<Schedule> = {
     id: 's-1',
-    userId: 'user-1',
+    createdBy: 'user-1',
     title: '팀 미팅',
     description: null,
-    startDate: new Date('2026-03-25T10:00:00Z'),
-    endDate: new Date('2026-03-25T11:00:00Z'),
+    startAt: new Date('2026-03-25T10:00:00Z'),
+    endAt: new Date('2026-03-25T11:00:00Z'),
+    isAllDay: false,
+    location: null,
     clickupTaskId: null,
-    status: ScheduleStatus.PENDING,
+    status: ScheduleStatus.SCHEDULED,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -58,8 +60,8 @@ describe('ScheduleAgentService', () => {
 
       const result = await service.createSchedule('user-1', {
         title: '팀 미팅',
-        startDate: '2026-03-25T10:00:00Z',
-        endDate: '2026-03-25T11:00:00Z',
+        startAt: '2026-03-25T10:00:00Z',
+        endAt: '2026-03-25T11:00:00Z',
       });
 
       expect(result.title).toBe('팀 미팅');
@@ -78,7 +80,7 @@ describe('ScheduleAgentService', () => {
       expect(result.title).toBe('변경된 미팅');
     });
 
-    it('PENDING 상태를 CONFIRMED로 변경한다', async () => {
+    it('SCHEDULED 상태를 CONFIRMED로 변경한다', async () => {
       const schedule = Object.assign(new Schedule(), mockSchedule);
       scheduleRepo.findOne.mockResolvedValue(schedule);
       scheduleRepo.save.mockImplementation((s) => Promise.resolve(s as Schedule));
@@ -98,7 +100,7 @@ describe('ScheduleAgentService', () => {
   });
 
   describe('cancelSchedule', () => {
-    it('PENDING 일정을 취소한다', async () => {
+    it('SCHEDULED 일정을 취소한다', async () => {
       const schedule = Object.assign(new Schedule(), mockSchedule);
       scheduleRepo.findOne.mockResolvedValue(schedule);
       scheduleRepo.save.mockImplementation((s) => Promise.resolve(s as Schedule));
@@ -129,7 +131,7 @@ describe('ScheduleAgentService', () => {
       expect(result).toHaveLength(1);
       expect(scheduleRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-1' },
+          where: { createdBy: 'user-1' },
         }),
       );
     });

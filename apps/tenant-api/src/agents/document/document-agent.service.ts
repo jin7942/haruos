@@ -35,7 +35,7 @@ export class DocumentAgentService {
    */
   async createDocument(userId: string, dto: CreateDocumentRequestDto): Promise<Document> {
     const document = this.documentRepository.create({
-      userId,
+      createdBy: userId,
       title: dto.title,
       content: dto.content ?? null,
       type: dto.type,
@@ -81,7 +81,7 @@ export class DocumentAgentService {
    * @returns 문서 목록
    */
   async getDocuments(userId: string, type?: string): Promise<Document[]> {
-    const where: Record<string, unknown> = { userId };
+    const where: Record<string, unknown> = { createdBy: userId };
     if (type) {
       where.type = type;
     }

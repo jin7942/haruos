@@ -43,9 +43,10 @@ export class KnowledgeAgentService {
     for (let i = 0; i < chunks.length; i++) {
       const chunkText = chunks[i];
 
-      let embedding: number[] | null = null;
+      let embeddingStr: string | null = null;
       try {
-        embedding = await this.aiGatewayService.generateEmbedding(chunkText);
+        const embeddingVec = await this.aiGatewayService.generateEmbedding(chunkText);
+        embeddingStr = `[${embeddingVec.join(',')}]`;
       } catch (error) {
         this.logger.warn(`임베딩 생성 실패 (chunk ${i}), fallback to null: ${(error as Error).message}`);
       }
@@ -55,10 +56,11 @@ export class KnowledgeAgentService {
         chunkIndex: i,
         content: chunkText,
         tokenCount: Math.ceil(chunkText.length / 4),
-        embedding,
+        embedding: embeddingStr,
       });
 
-      savedChunks.push(await this.chunkRepository.save(chunk));
+      const saved = await this.chunkRepository.save(chunk);
+      savedChunks.push(saved);
     }
 
     this.logger.log(`문서 인덱싱 완료: documentId=${documentId}, chunks=${savedChunks.length}`);

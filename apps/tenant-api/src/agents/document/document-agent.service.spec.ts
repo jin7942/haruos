@@ -19,7 +19,7 @@ describe('DocumentAgentService', () => {
 
   const mockDocument: Partial<Document> = {
     id: 'd-1',
-    userId: 'user-1',
+    createdBy: 'user-1',
     title: '팀 회의록',
     content: '# 회의록\n\n## 안건\n- 프로젝트 진행 상황\n- 다음 스프린트 계획',
     type: 'MEETING_NOTE',

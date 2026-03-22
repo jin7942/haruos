@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { Conversation } from './conversation.entity';
 
 /**
@@ -7,7 +6,7 @@ import { Conversation } from './conversation.entity';
  * 대화 내 개별 메시지를 저장한다.
  */
 @Entity('messages')
-export class Message extends BaseEntity {
+export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -18,7 +17,7 @@ export class Message extends BaseEntity {
   @JoinColumn({ name: 'conversation_id' })
   conversation: Conversation;
 
-  @Column()
+  @Column({ length: 20 })
   role: string;
 
   @Column({ type: 'text' })
@@ -29,4 +28,7 @@ export class Message extends BaseEntity {
 
   @Column({ name: 'token_count', type: 'int', default: 0 })
   tokenCount: number;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 }

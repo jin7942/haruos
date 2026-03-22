@@ -30,6 +30,9 @@ export class AwsCredentialEntity extends BaseEntity {
   @Column({ name: 'validated_at', type: 'timestamptz', nullable: true })
   validatedAt: Date | null;
 
+  @Column({ name: 'last_assumed_at', type: 'timestamptz', nullable: true })
+  lastAssumedAt: Date | null;
+
   /**
    * AWS 자격증명 생성 팩토리.
    *

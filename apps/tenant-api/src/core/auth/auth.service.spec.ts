@@ -24,7 +24,7 @@ describe('AuthService', () => {
     id: '123e4567-e89b-12d3-a456-426614174000',
     email: 'user@tenant.com',
     name: '테넌트유저',
-    tenantId: 'tenant-001',
+    role: 'MEMBER',
     isActive: true,
     lastLoginAt: null,
     createdAt: new Date('2026-03-22'),
@@ -121,16 +121,16 @@ describe('AuthService', () => {
   describe('verifyOtp', () => {
     it('유효한 OTP로 로그인 토큰을 발급한다', async () => {
       const mockOtp = {
-        email: 'user@tenant.com',
+        userId: mockUser.id,
         code: '123456',
-        isUsed: false,
+        usedAt: null,
         expiresAt: new Date(Date.now() + 300000),
         isExpired: () => false,
         markUsed: jest.fn(),
       } as unknown as OtpEntity;
 
-      otpRepo.findOne.mockResolvedValue(mockOtp);
       userRepo.findOne.mockResolvedValue(mockUser as TenantUserEntity);
+      otpRepo.findOne.mockResolvedValue(mockOtp);
       userRepo.save.mockResolvedValue(mockUser as TenantUserEntity);
       otpRepo.save.mockResolvedValue(mockOtp);
 
@@ -143,6 +143,7 @@ describe('AuthService', () => {
     });
 
     it('존재하지 않는 OTP이면 UnauthorizedException을 던진다', async () => {
+      userRepo.findOne.mockResolvedValue(mockUser as TenantUserEntity);
       otpRepo.findOne.mockResolvedValue(null);
 
       await expect(service.verifyOtp('user@tenant.com', '000000')).rejects.toThrow(
@@ -152,14 +153,15 @@ describe('AuthService', () => {
 
     it('만료된 OTP이면 UnauthorizedException을 던진다', async () => {
       const expiredOtp = {
-        email: 'user@tenant.com',
+        userId: mockUser.id,
         code: '123456',
-        isUsed: false,
+        usedAt: null,
         expiresAt: new Date(Date.now() - 1000),
         isExpired: () => true,
         markUsed: jest.fn(),
       } as unknown as OtpEntity;
 
+      userRepo.findOne.mockResolvedValue(mockUser as TenantUserEntity);
       otpRepo.findOne.mockResolvedValue(expiredOtp);
 
       await expect(service.verifyOtp('user@tenant.com', '123456')).rejects.toThrow(
@@ -173,7 +175,7 @@ describe('AuthService', () => {
       jwtService.verify.mockReturnValue({
         sub: mockUser.id,
         email: mockUser.email,
-        tenantId: mockUser.tenantId,
+        role: mockUser.role,
       } as any);
       userRepo.findOne.mockResolvedValue(mockUser as TenantUserEntity);
 

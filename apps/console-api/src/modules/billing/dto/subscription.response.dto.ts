@@ -9,32 +9,31 @@ export class SubscriptionResponseDto {
   @ApiProperty({ description: '테넌트 ID' })
   tenantId: string;
 
-  @ApiProperty({ description: '요금제 타입' })
-  planType: string;
-
-  @ApiProperty({ description: '구독 상태', enum: ['ACTIVE', 'CANCELLED', 'PAST_DUE', 'EXPIRED'] })
+  @ApiProperty({ description: '구독 상태', enum: ['TRIAL', 'ACTIVE', 'CANCELLED', 'PAST_DUE', 'EXPIRED'] })
   status: SubscriptionStatus;
 
   @ApiProperty({ description: '현재 결제 주기 종료일', nullable: true })
-  currentPeriodEnd: Date | null;
+  currentPeriodEnd: string | null;
+
+  @ApiProperty({ description: '취소일', nullable: true })
+  cancelledAt: string | null;
 
   @ApiProperty({ description: '생성일' })
-  createdAt: Date;
+  createdAt: string;
 
   /**
    * SubscriptionEntity에서 응답 DTO로 변환한다.
    *
    * @param entity - 구독 엔티티
-   * @returns 구독 응답 DTO
    */
   static from(entity: SubscriptionEntity): SubscriptionResponseDto {
     const dto = new SubscriptionResponseDto();
     dto.id = entity.id;
     dto.tenantId = entity.tenantId;
-    dto.planType = entity.planType;
     dto.status = entity.status;
-    dto.currentPeriodEnd = entity.currentPeriodEnd;
-    dto.createdAt = entity.createdAt;
+    dto.currentPeriodEnd = entity.currentPeriodEnd?.toISOString() ?? null;
+    dto.cancelledAt = entity.cancelledAt?.toISOString() ?? null;
+    dto.createdAt = entity.createdAt.toISOString();
     return dto;
   }
 }

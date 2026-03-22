@@ -32,33 +32,33 @@ describe('BatchSchedulerService', () => {
   describe('createJob', () => {
     it('배치 작업을 생성한다', async () => {
       const job = {
-        id: 'job-1', userId: 'user-1', name: '일일 리포트',
-        cronExpression: '0 9 * * *', status: 'ACTIVE',
+        id: 'job-1', name: '일일 리포트',
+        cronExpression: '0 9 * * *', isEnabled: true,
       } as BatchJob;
       batchJobRepo.create.mockReturnValue(job);
       batchJobRepo.save.mockResolvedValue(job);
 
-      const result = await service.createJob('user-1', {
+      const result = await service.createJob({
         name: '일일 리포트',
         cronExpression: '0 9 * * *',
       });
 
       expect(result.id).toBe('job-1');
-      expect(result.status).toBe('ACTIVE');
+      expect(result.isEnabled).toBe(true);
     });
   });
 
-  describe('pauseJob', () => {
-    it('ACTIVE 상태의 작업을 PAUSED로 전환한다', async () => {
+  describe('disableJob', () => {
+    it('작업을 비활성화한다', async () => {
       const job = Object.assign(new BatchJob(), {
-        id: 'job-1', userId: 'user-1', status: 'ACTIVE',
+        id: 'job-1', isEnabled: true,
       });
       batchJobRepo.findOne.mockResolvedValue(job);
       batchJobRepo.save.mockResolvedValue(job);
 
-      await service.pauseJob('job-1', 'user-1');
+      await service.disableJob('job-1');
 
-      expect(job.status).toBe('PAUSED');
+      expect(job.isEnabled).toBe(false);
       expect(batchJobRepo.save).toHaveBeenCalled();
     });
 
@@ -66,51 +66,36 @@ describe('BatchSchedulerService', () => {
       batchJobRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.pauseJob('invalid', 'user-1'),
+        service.disableJob('invalid'),
       ).rejects.toThrow(ResourceNotFoundException);
     });
   });
 
-  describe('resumeJob', () => {
-    it('PAUSED 상태의 작업을 ACTIVE로 전환한다', async () => {
+  describe('enableJob', () => {
+    it('비활성화된 작업을 활성화한다', async () => {
       const job = Object.assign(new BatchJob(), {
-        id: 'job-1', userId: 'user-1', status: 'PAUSED',
+        id: 'job-1', isEnabled: false,
       });
       batchJobRepo.findOne.mockResolvedValue(job);
       batchJobRepo.save.mockResolvedValue(job);
 
-      await service.resumeJob('job-1', 'user-1');
+      await service.enableJob('job-1');
 
-      expect(job.status).toBe('ACTIVE');
+      expect(job.isEnabled).toBe(true);
     });
   });
 
   describe('getJobs', () => {
-    it('사용자의 배치 작업 목록을 반환한다', async () => {
+    it('배치 작업 목록을 반환한다', async () => {
       const jobs = [{ id: 'job-1' }] as BatchJob[];
       batchJobRepo.find.mockResolvedValue(jobs);
 
-      const result = await service.getJobs('user-1');
+      const result = await service.getJobs();
 
       expect(result).toHaveLength(1);
       expect(batchJobRepo.find).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
         order: { createdAt: 'DESC' },
       });
-    });
-  });
-
-  describe('executeJob', () => {
-    it('작업 실행 시 lastRunAt을 갱신한다', async () => {
-      const job = Object.assign(new BatchJob(), {
-        id: 'job-1', userId: 'user-1', status: 'ACTIVE', lastRunAt: null,
-      });
-      batchJobRepo.findOne.mockResolvedValue(job);
-      batchJobRepo.save.mockResolvedValue(job);
-
-      await service.executeJob('job-1', 'user-1');
-
-      expect(job.lastRunAt).toBeInstanceOf(Date);
     });
   });
 });

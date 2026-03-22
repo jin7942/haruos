@@ -1,0 +1,12 @@
+**/node_modules
+.git
+.gitignore
+.claude-log
+.claude
+.env
+.env.local
+**/coverage
+**/.turbo
+.vscode
+ADR
+docs

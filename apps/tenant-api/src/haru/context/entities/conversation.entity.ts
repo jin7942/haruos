@@ -14,8 +14,8 @@ export class Conversation extends BaseEntity {
   @Column({ name: 'user_id' })
   userId: string;
 
-  @Column()
-  title: string;
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  title: string | null;
 
   @OneToMany(() => Message, (message) => message.conversation)
   messages: Message[];

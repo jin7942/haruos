@@ -1,0 +1,132 @@
+# HaruOS Docker Compose - 개발 모드 (hot reload)
+# 사용법: docker compose -f docker-compose.dev.yml up
+# 소스 마운트 + pnpm dev로 hot reload 지원
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: haruos
+      POSTGRES_PASSWORD: haruos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haruos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  flyway-console:
+    image: flyway/flyway:10
+    command: migrate
+    volumes:
+      - ../flyway/console:/flyway/sql
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/haruos_console
+      FLYWAY_USER: haruos
+      FLYWAY_PASSWORD: haruos
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  flyway-tenant:
+    image: flyway/flyway:10
+    command: migrate
+    volumes:
+      - ../flyway/tenant:/flyway/sql
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/haruos_tenant
+      FLYWAY_USER: haruos
+      FLYWAY_PASSWORD: haruos
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  console-api:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - pnpm_store:/app/.pnpm-store
+    command: sh -c "corepack enable && pnpm dev:console-api"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: haruos
+      DB_PASSWORD: haruos
+      DB_DATABASE: haruos_console
+      JWT_SECRET: docker-dev-secret
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flyway-console:
+        condition: service_completed_successfully
+
+  tenant-api:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - pnpm_store:/app/.pnpm-store
+    command: sh -c "corepack enable && pnpm dev:tenant-api"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: haruos
+      DB_PASSWORD: haruos
+      DB_DATABASE: haruos_tenant
+      JWT_SECRET: docker-dev-secret
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      AWS_REGION: ap-northeast-2
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flyway-tenant:
+        condition: service_completed_successfully
+
+  console-web:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - pnpm_store:/app/.pnpm-store
+    command: sh -c "corepack enable && pnpm --filter @haruos/console-web dev -- --host"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - console-api
+
+  tenant-web:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - pnpm_store:/app/.pnpm-store
+    command: sh -c "corepack enable && pnpm --filter @haruos/tenant-web dev -- --host"
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5174:5174"
+    depends_on:
+      - tenant-api
+
+volumes:
+  postgres_data:
+  pnpm_store:

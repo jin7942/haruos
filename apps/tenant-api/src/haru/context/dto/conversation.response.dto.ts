@@ -7,7 +7,7 @@ export class ConversationResponseDto {
   id: string;
 
   @ApiProperty({ description: '대화 제목' })
-  title: string;
+  title: string | null;
 
   @ApiProperty({ description: '생성 시각 (ISO 8601)' })
   createdAt: string;

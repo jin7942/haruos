@@ -3,11 +3,17 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/shared-types/package.json packages/shared-types/
+COPY packages/shared-utils/package.json packages/shared-utils/
+COPY packages/shared-ui/package.json packages/shared-ui/
 COPY apps/console-web/package.json apps/console-web/
 RUN pnpm install --frozen-lockfile
 COPY packages/shared-types/ packages/shared-types/
+COPY packages/shared-utils/ packages/shared-utils/
+COPY packages/shared-ui/ packages/shared-ui/
 COPY apps/console-web/ apps/console-web/
 RUN pnpm --filter @haruos/shared-types build
+RUN pnpm --filter @haruos/shared-utils build
+RUN pnpm --filter @haruos/shared-ui build
 RUN pnpm --filter @haruos/console-web build
 
 FROM nginx:alpine

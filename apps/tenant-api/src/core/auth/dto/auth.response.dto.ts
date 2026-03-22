@@ -13,7 +13,7 @@ export class TenantUserSummaryVo {
   name: string;
 
   @ApiProperty()
-  tenantId: string;
+  role: string;
 
   /** @param user - TenantUserEntity에서 변환 */
   static from(user: TenantUserEntity): TenantUserSummaryVo {
@@ -21,7 +21,7 @@ export class TenantUserSummaryVo {
     vo.id = user.id;
     vo.email = user.email;
     vo.name = user.name;
-    vo.tenantId = user.tenantId;
+    vo.role = user.role;
     return vo;
   }
 }

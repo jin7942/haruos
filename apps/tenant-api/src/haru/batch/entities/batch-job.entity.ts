@@ -21,58 +21,51 @@ export class BatchJob extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'user_id' })
-  userId: string;
-
-  @Column()
+  @Column({ length: 100, unique: true })
   name: string;
 
-  @Column({ name: 'cron_expression' })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  description: string | null;
+
+  @Column({ name: 'cron_expression', length: 50 })
   cronExpression: string;
 
-  @Column({ default: 'ACTIVE' })
-  status: BatchJobStatus;
+  @Column({ name: 'is_enabled', default: true })
+  isEnabled: boolean;
 
   @Column({ name: 'last_run_at', type: 'timestamptz', nullable: true })
   lastRunAt: Date | null;
 
-  @Column({ name: 'next_run_at', type: 'timestamptz', nullable: true })
-  nextRunAt: Date | null;
+  @Column({ name: 'last_run_status', type: 'varchar', length: 50, nullable: true })
+  lastRunStatus: string | null;
 
-  @Column({ type: 'jsonb', nullable: true })
-  payload: Record<string, unknown> | null;
+  @Column({ name: 'last_run_duration_ms', type: 'int', nullable: true })
+  lastRunDurationMs: number | null;
+
+  @Column({ name: 'last_error', type: 'text', nullable: true })
+  lastError: string | null;
+
+  /** 작업 비활성화. */
+  disable(): void {
+    this.isEnabled = false;
+  }
+
+  /** 작업 활성화. */
+  enable(): void {
+    this.isEnabled = true;
+  }
 
   /**
-   * 상태 전이 실행.
-   * 허용되지 않은 전이는 예외를 발생시킨다.
+   * 실행 결과를 기록한다.
    *
-   * @param target - 목표 상태
-   * @throws InvalidStateTransitionException 허용되지 않은 전이인 경우
+   * @param status - 실행 결과 상태
+   * @param durationMs - 실행 소요 시간 (ms)
+   * @param error - 실패 시 에러 메시지
    */
-  private transitionTo(target: BatchJobStatus): void {
-    if (!ALLOWED_TRANSITIONS[this.status].includes(target)) {
-      throw new InvalidStateTransitionException(this.status, target);
-    }
-    this.status = target;
-  }
-
-  /** 작업 일시정지. ACTIVE -> PAUSED */
-  pause(): void {
-    this.transitionTo('PAUSED');
-  }
-
-  /** 작업 재개. PAUSED -> ACTIVE */
-  resume(): void {
-    this.transitionTo('ACTIVE');
-  }
-
-  /** 작업 완료 처리. ACTIVE -> COMPLETED */
-  complete(): void {
-    this.transitionTo('COMPLETED');
-  }
-
-  /** 마지막 실행 시각 기록. */
-  recordExecution(): void {
+  recordExecution(status: string, durationMs: number, error?: string): void {
     this.lastRunAt = new Date();
+    this.lastRunStatus = status;
+    this.lastRunDurationMs = durationMs;
+    this.lastError = error || null;
   }
 }

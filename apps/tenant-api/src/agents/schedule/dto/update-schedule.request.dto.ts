@@ -16,12 +16,12 @@ export class UpdateScheduleRequestDto {
   @ApiPropertyOptional({ description: '시작일시 (ISO 8601)' })
   @IsOptional()
   @IsDateString()
-  startDate?: string;
+  startAt?: string;
 
   @ApiPropertyOptional({ description: '종료일시 (ISO 8601)' })
   @IsOptional()
   @IsDateString()
-  endDate?: string;
+  endAt?: string;
 
   @ApiPropertyOptional({
     description: '상태 변경',

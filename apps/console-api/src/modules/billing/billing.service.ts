@@ -23,32 +23,27 @@ export class BillingService {
   ) {}
 
   /**
-   * 구독을 생성한다.
-   * 외부 결제 시스템에 고객/구독을 생성하고 DB에 저장.
+   * 구독을 생성한다 (TRIAL 상태).
+   * 외부 결제 시스템에 고객을 생성하고 DB에 저장.
    *
-   * @param dto - 구독 생성 요청 (tenantId, planType, email, name)
+   * @param dto - 구독 생성 요청 (tenantId, email, name)
    * @returns 생성된 구독 정보
-   * @throws DuplicateResourceException 해당 테넌트에 이미 활성 구독이 있는 경우
+   * @throws DuplicateResourceException 해당 테넌트에 이미 구독이 있는 경우
    */
   async createSubscription(dto: CreateSubscriptionRequestDto): Promise<SubscriptionResponseDto> {
     const existing = await this.subscriptionRepository.findOne({
-      where: { tenantId: dto.tenantId, status: 'ACTIVE' },
+      where: { tenantId: dto.tenantId },
     });
     if (existing) {
       throw new DuplicateResourceException('Subscription', dto.tenantId);
     }
 
     const customerId = await this.paymentPort.createCustomer(dto.email, dto.name);
-    const priceId = dto.priceId ?? 'price_standard_monthly';
-    const externalSubscriptionId = await this.paymentPort.createSubscription(customerId, priceId);
 
     const subscription = this.subscriptionRepository.create({
       tenantId: dto.tenantId,
-      planType: dto.planType,
-      status: 'ACTIVE',
+      status: 'TRIAL',
       stripeCustomerId: customerId,
-      stripeSubscriptionId: externalSubscriptionId,
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
     await this.subscriptionRepository.save(subscription);
 
@@ -56,16 +51,45 @@ export class BillingService {
   }
 
   /**
-   * 테넌트의 활성 구독을 조회한다.
+   * 구독을 활성화한다 (결제 등록 완료 후).
+   *
+   * @param tenantId - 테넌트 ID
+   * @param priceId - Stripe Price ID
+   * @returns 활성화된 구독 정보
+   * @throws ResourceNotFoundException 구독이 없는 경우
+   */
+  async activateSubscription(tenantId: string, priceId: string): Promise<SubscriptionResponseDto> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId },
+    });
+    if (!subscription) {
+      throw new ResourceNotFoundException('Subscription', tenantId);
+    }
+
+    const externalSubscriptionId = await this.paymentPort.createSubscription(
+      subscription.stripeCustomerId!,
+      priceId,
+    );
+
+    subscription.stripeSubscriptionId = externalSubscriptionId;
+    subscription.currentPeriodStart = new Date();
+    subscription.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    subscription.activate();
+
+    await this.subscriptionRepository.save(subscription);
+    return SubscriptionResponseDto.from(subscription);
+  }
+
+  /**
+   * 테넌트의 구독을 조회한다.
    *
    * @param tenantId - 테넌트 ID
    * @returns 구독 정보
-   * @throws ResourceNotFoundException 활성 구독이 없는 경우
+   * @throws ResourceNotFoundException 구독이 없는 경우
    */
   async getSubscription(tenantId: string): Promise<SubscriptionResponseDto> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId },
-      order: { createdAt: 'DESC' },
     });
     if (!subscription) {
       throw new ResourceNotFoundException('Subscription', tenantId);
@@ -84,7 +108,7 @@ export class BillingService {
    */
   async cancelSubscription(tenantId: string): Promise<SubscriptionResponseDto> {
     const subscription = await this.subscriptionRepository.findOne({
-      where: { tenantId, status: 'ACTIVE' },
+      where: { tenantId },
     });
     if (!subscription) {
       throw new ResourceNotFoundException('Subscription', tenantId);

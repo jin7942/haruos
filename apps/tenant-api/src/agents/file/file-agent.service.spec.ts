@@ -2,23 +2,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FileAgentService } from './file-agent.service';
-import { FileRecordEntity } from './entities/file-record.entity';
+import { File } from './entities/file.entity';
 import { StorageService } from '../../core/storage/storage.service';
 import { ResourceNotFoundException } from '../../common/exceptions/business.exception';
 
 describe('FileAgentService', () => {
   let service: FileAgentService;
-  let fileRepo: jest.Mocked<Repository<FileRecordEntity>>;
+  let fileRepo: jest.Mocked<Repository<File>>;
   let storageService: jest.Mocked<StorageService>;
 
-  const mockFileRecord: Partial<FileRecordEntity> = {
+  const mockFile: Partial<File> = {
     id: 'f-1',
-    userId: 'user-1',
-    fileName: 'test.pdf',
+    originalName: 'test.pdf',
     s3Key: 'files/user-1/uuid/test.pdf',
+    sizeBytes: '1024',
     mimeType: 'application/pdf',
-    size: '1024',
-    uploadedAt: new Date(),
+    status: 'UPLOADED',
+    category: null,
+    projectId: null,
+    parentFileId: null,
+    uploadedBy: 'user-1',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -28,7 +31,7 @@ describe('FileAgentService', () => {
       providers: [
         FileAgentService,
         {
-          provide: getRepositoryToken(FileRecordEntity),
+          provide: getRepositoryToken(File),
           useValue: {
             findOne: jest.fn(),
             find: jest.fn(),
@@ -49,7 +52,7 @@ describe('FileAgentService', () => {
     }).compile();
 
     service = module.get(FileAgentService);
-    fileRepo = module.get(getRepositoryToken(FileRecordEntity));
+    fileRepo = module.get(getRepositoryToken(File));
     storageService = module.get(StorageService);
   });
 
@@ -57,12 +60,12 @@ describe('FileAgentService', () => {
     it('파일을 S3에 업로드하고 레코드를 생성한다', async () => {
       const buffer = Buffer.from('file content');
       storageService.upload.mockResolvedValue(undefined);
-      fileRepo.create.mockReturnValue(mockFileRecord as FileRecordEntity);
-      fileRepo.save.mockResolvedValue(mockFileRecord as FileRecordEntity);
+      fileRepo.create.mockReturnValue(mockFile as File);
+      fileRepo.save.mockResolvedValue(mockFile as File);
 
       const result = await service.uploadFile('user-1', 'test.pdf', buffer, 'application/pdf');
 
-      expect(result.fileName).toBe('test.pdf');
+      expect(result.originalName).toBe('test.pdf');
       expect(storageService.upload).toHaveBeenCalledWith(
         expect.stringContaining('files/user-1/'),
         buffer,
@@ -73,14 +76,14 @@ describe('FileAgentService', () => {
 
   describe('getFiles', () => {
     it('사용자의 파일 목록을 반환한다', async () => {
-      fileRepo.find.mockResolvedValue([mockFileRecord as FileRecordEntity]);
+      fileRepo.find.mockResolvedValue([mockFile as File]);
 
       const result = await service.getFiles('user-1');
 
       expect(result).toHaveLength(1);
       expect(fileRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-1' },
+          where: { uploadedBy: 'user-1' },
         }),
       );
     });
@@ -88,9 +91,9 @@ describe('FileAgentService', () => {
 
   describe('getFileUrl', () => {
     it('파일의 Presigned URL을 반환한다', async () => {
-      fileRepo.findOne.mockResolvedValue(mockFileRecord as FileRecordEntity);
+      fileRepo.findOne.mockResolvedValue(mockFile as File);
       storageService.getFileInfo.mockResolvedValue({
-        key: mockFileRecord.s3Key!,
+        key: mockFile.s3Key!,
         url: 'https://s3.amazonaws.com/presigned-url',
       });
 
@@ -108,13 +111,13 @@ describe('FileAgentService', () => {
 
   describe('deleteFile', () => {
     it('파일을 S3에서 삭제하고 레코드를 제거한다', async () => {
-      fileRepo.findOne.mockResolvedValue(mockFileRecord as FileRecordEntity);
+      fileRepo.findOne.mockResolvedValue(mockFile as File);
       storageService.delete.mockResolvedValue(undefined);
-      fileRepo.remove.mockResolvedValue(mockFileRecord as FileRecordEntity);
+      fileRepo.remove.mockResolvedValue(mockFile as File);
 
       await service.deleteFile('f-1');
 
-      expect(storageService.delete).toHaveBeenCalledWith(mockFileRecord.s3Key);
+      expect(storageService.delete).toHaveBeenCalledWith(mockFile.s3Key);
       expect(fileRepo.remove).toHaveBeenCalled();
     });
 

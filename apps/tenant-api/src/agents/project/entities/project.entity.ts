@@ -19,10 +19,10 @@ export class Project extends BaseEntity {
   @Column({ name: 'status' })
   status: string;
 
-  @Column({ name: 'category', nullable: true })
+  @Column({ name: 'category', type: 'varchar', nullable: true })
   category: string | null;
 
-  @Column({ name: 'clickup_space_id', nullable: true })
+  @Column({ name: 'clickup_space_id', type: 'varchar', nullable: true })
   clickupSpaceId: string | null;
 
   @Column({ name: 'progress', type: 'int', default: 0 })

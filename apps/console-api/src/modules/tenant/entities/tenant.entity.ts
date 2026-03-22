@@ -20,7 +20,7 @@ export class TenantEntity extends SoftDeletableEntity {
   @Column({ name: 'slug', length: 100, unique: true })
   slug: string;
 
-  @Column({ name: 'description', length: 500, nullable: true })
+  @Column({ name: 'description', type: 'varchar', length: 500, nullable: true })
   description: string | null;
 
   @Column({ name: 'status', length: 50, default: 'CREATING' })

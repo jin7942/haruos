@@ -9,20 +9,20 @@ export class BatchJobResponseDto {
   @ApiProperty({ description: '작업 이름' })
   name: string;
 
+  @ApiPropertyOptional({ description: '작업 설명' })
+  description: string | null;
+
   @ApiProperty({ description: 'Cron 표현식' })
   cronExpression: string;
 
-  @ApiProperty({ description: '작업 상태 (ACTIVE/PAUSED/COMPLETED)' })
-  status: string;
+  @ApiProperty({ description: '활성화 여부' })
+  isEnabled: boolean;
 
   @ApiPropertyOptional({ description: '마지막 실행 시각' })
   lastRunAt: string | null;
 
-  @ApiPropertyOptional({ description: '다음 실행 시각' })
-  nextRunAt: string | null;
-
-  @ApiPropertyOptional({ description: '작업 페이로드' })
-  payload: Record<string, unknown> | null;
+  @ApiPropertyOptional({ description: '마지막 실행 상태' })
+  lastRunStatus: string | null;
 
   @ApiProperty({ description: '생성 시각' })
   createdAt: string;
@@ -36,11 +36,11 @@ export class BatchJobResponseDto {
     const dto = new BatchJobResponseDto();
     dto.id = entity.id;
     dto.name = entity.name;
+    dto.description = entity.description;
     dto.cronExpression = entity.cronExpression;
-    dto.status = entity.status;
+    dto.isEnabled = entity.isEnabled;
     dto.lastRunAt = entity.lastRunAt?.toISOString() ?? null;
-    dto.nextRunAt = entity.nextRunAt?.toISOString() ?? null;
-    dto.payload = entity.payload;
+    dto.lastRunStatus = entity.lastRunStatus;
     dto.createdAt = entity.createdAt.toISOString();
     return dto;
   }

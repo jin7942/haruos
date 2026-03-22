@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcryptjs';
 import { randomUUID, randomInt } from 'crypto';
 import { TenantUserEntity } from './entities/tenant-user.entity';
 import { OtpEntity } from './entities/otp.entity';
@@ -51,7 +50,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
     const otp = this.otpRepository.create({
-      email,
+      userId: user.id,
       code,
       expiresAt,
     });
@@ -71,8 +70,13 @@ export class AuthService {
    * @throws UnauthorizedException OTP가 유효하지 않은 경우
    */
   async verifyOtp(email: string, code: string): Promise<LoginResponseDto> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new ResourceNotFoundException('TenantUser', email);
+    }
+
     const otp = await this.otpRepository.findOne({
-      where: { email, code, isUsed: false },
+      where: { userId: user.id, code, usedAt: IsNull() },
       order: { createdAt: 'DESC' },
     });
 
@@ -87,16 +91,11 @@ export class AuthService {
     otp.markUsed();
     await this.otpRepository.save(otp);
 
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user) {
-      throw new ResourceNotFoundException('TenantUser', email);
-    }
-
     user.recordLogin();
     await this.userRepository.save(user);
 
     const accessToken = this.jwtService.sign(
-      { sub: user.id, email: user.email, tenantId: user.tenantId },
+      { sub: user.id, email: user.email, role: user.role },
       { expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m') },
     );
 
@@ -117,9 +116,7 @@ export class AuthService {
    * @throws UnauthorizedException Refresh Token이 유효하지 않은 경우
    */
   async refreshAccessToken(refreshToken: string): Promise<TokenResponseDto> {
-    // Refresh Token 검증은 프로덕션에서 DB/Redis 저장 방식으로 구현 예정.
-    // 현재는 JWT 자체를 검증하는 간소화된 방식.
-    let payload: { sub: string; email: string; tenantId: string };
+    let payload: { sub: string; email: string; role: string };
     try {
       payload = this.jwtService.verify(refreshToken);
     } catch {
@@ -132,7 +129,7 @@ export class AuthService {
     }
 
     const accessToken = this.jwtService.sign(
-      { sub: user.id, email: user.email, tenantId: user.tenantId },
+      { sub: user.id, email: user.email, role: user.role },
       { expiresIn: this.configService.get('JWT_ACCESS_EXPIRY', '15m') },
     );
 

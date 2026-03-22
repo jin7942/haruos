@@ -6,8 +6,14 @@ export class CreateBatchJobRequestDto {
   @ApiProperty({ description: '작업 이름', example: '일일 리포트 생성' })
   @IsString()
   @MinLength(1)
-  @MaxLength(200)
+  @MaxLength(100)
   name: string;
+
+  @ApiPropertyOptional({ description: '작업 설명' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  description?: string;
 
   @ApiProperty({
     description: 'Cron 표현식',
@@ -16,8 +22,4 @@ export class CreateBatchJobRequestDto {
   @IsString()
   @Matches(/^(\S+\s+){4}\S+$/, { message: 'Invalid cron expression format' })
   cronExpression: string;
-
-  @ApiPropertyOptional({ description: '작업 페이로드 (JSON)' })
-  @IsOptional()
-  payload?: Record<string, unknown>;
 }

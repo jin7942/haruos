@@ -18,18 +18,29 @@ describe('BillingService', () => {
 
   const tenantId = 'tenant-uuid-1';
 
-  /** ACTIVE 상태의 구독 엔티티를 생성한다. */
-  function createActiveSubscription(): SubscriptionEntity {
+  /** TRIAL 상태의 구독 엔티티를 생성한다. */
+  function createTrialSubscription(): SubscriptionEntity {
     const entity = new SubscriptionEntity();
     entity.id = 'sub-uuid-1';
     entity.tenantId = tenantId;
-    entity.planType = 'STANDARD';
-    entity.status = 'ACTIVE';
+    entity.status = 'TRIAL';
     entity.stripeCustomerId = 'cus_123';
-    entity.stripeSubscriptionId = 'sub_123';
-    entity.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    entity.stripeSubscriptionId = null;
+    entity.currentPeriodStart = null;
+    entity.currentPeriodEnd = null;
+    entity.cancelledAt = null;
     entity.createdAt = new Date();
     entity.updatedAt = new Date();
+    return entity;
+  }
+
+  /** ACTIVE 상태의 구독 엔티티를 생성한다. */
+  function createActiveSubscription(): SubscriptionEntity {
+    const entity = createTrialSubscription();
+    entity.status = 'ACTIVE';
+    entity.stripeSubscriptionId = 'sub_123';
+    entity.currentPeriodStart = new Date();
+    entity.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     return entity;
   }
 
@@ -37,7 +48,6 @@ describe('BillingService', () => {
   function createDto(): CreateSubscriptionRequestDto {
     const dto = new CreateSubscriptionRequestDto();
     dto.tenantId = tenantId;
-    dto.planType = 'STANDARD';
     dto.email = 'test@example.com';
     dto.name = 'Test User';
     return dto;
@@ -73,48 +83,28 @@ describe('BillingService', () => {
   });
 
   describe('createSubscription', () => {
-    it('구독을 정상 생성한다', async () => {
+    it('TRIAL 상태로 구독을 생성한다', async () => {
       subscriptionRepo.findOne.mockResolvedValue(null);
       paymentPort.createCustomer.mockResolvedValue('cus_new');
-      paymentPort.createSubscription.mockResolvedValue('sub_new');
 
-      const entity = createActiveSubscription();
+      const entity = createTrialSubscription();
       entity.stripeCustomerId = 'cus_new';
-      entity.stripeSubscriptionId = 'sub_new';
       subscriptionRepo.create.mockReturnValue(entity);
       subscriptionRepo.save.mockResolvedValue(entity);
 
       const result = await service.createSubscription(createDto());
 
       expect(result.tenantId).toBe(tenantId);
-      expect(result.status).toBe('ACTIVE');
+      expect(result.status).toBe('TRIAL');
       expect(paymentPort.createCustomer).toHaveBeenCalledWith('test@example.com', 'Test User');
-      expect(paymentPort.createSubscription).toHaveBeenCalledWith('cus_new', 'price_standard_monthly');
     });
 
-    it('이미 활성 구독이 있으면 DuplicateResourceException을 던진다', async () => {
-      subscriptionRepo.findOne.mockResolvedValue(createActiveSubscription());
+    it('이미 구독이 있으면 DuplicateResourceException을 던진다', async () => {
+      subscriptionRepo.findOne.mockResolvedValue(createTrialSubscription());
 
       await expect(service.createSubscription(createDto())).rejects.toThrow(
         DuplicateResourceException,
       );
-    });
-
-    it('커스텀 priceId를 전달하면 해당 값을 사용한다', async () => {
-      subscriptionRepo.findOne.mockResolvedValue(null);
-      paymentPort.createCustomer.mockResolvedValue('cus_new');
-      paymentPort.createSubscription.mockResolvedValue('sub_new');
-
-      const entity = createActiveSubscription();
-      subscriptionRepo.create.mockReturnValue(entity);
-      subscriptionRepo.save.mockResolvedValue(entity);
-
-      const dto = createDto();
-      dto.priceId = 'price_custom_123';
-
-      await service.createSubscription(dto);
-
-      expect(paymentPort.createSubscription).toHaveBeenCalledWith('cus_new', 'price_custom_123');
     });
   });
 
@@ -127,7 +117,6 @@ describe('BillingService', () => {
 
       expect(result.id).toBe('sub-uuid-1');
       expect(result.status).toBe('ACTIVE');
-      expect(result.planType).toBe('STANDARD');
     });
 
     it('구독이 없으면 ResourceNotFoundException을 던진다', async () => {
@@ -151,7 +140,7 @@ describe('BillingService', () => {
       expect(paymentPort.cancelSubscription).toHaveBeenCalledWith('sub_123');
     });
 
-    it('활성 구독이 없으면 ResourceNotFoundException을 던진다', async () => {
+    it('구독이 없으면 ResourceNotFoundException을 던진다', async () => {
       subscriptionRepo.findOne.mockResolvedValue(null);
 
       await expect(service.cancelSubscription(tenantId)).rejects.toThrow(
@@ -172,6 +161,12 @@ describe('BillingService', () => {
   });
 
   describe('SubscriptionEntity 상태 전이', () => {
+    it('TRIAL -> ACTIVE 정상 전이', () => {
+      const entity = createTrialSubscription();
+      entity.activate();
+      expect(entity.status).toBe('ACTIVE');
+    });
+
     it('ACTIVE -> CANCELLED 정상 전이', () => {
       const entity = createActiveSubscription();
       entity.cancel();
@@ -197,13 +192,7 @@ describe('BillingService', () => {
       expect(() => entity.cancel()).toThrow(InvalidStateTransitionException);
     });
 
-    it('CANCELLED에서 markPastDue() 호출 시 InvalidStateTransitionException', () => {
-      const entity = createActiveSubscription();
-      entity.cancel();
-      expect(() => entity.markPastDue()).toThrow(InvalidStateTransitionException);
-    });
-
-    it('이미 ACTIVE에서 activate() 호출 시 InvalidStateTransitionException', () => {
+    it('ACTIVE에서 activate() 호출 시 InvalidStateTransitionException', () => {
       const entity = createActiveSubscription();
       expect(() => entity.activate()).toThrow(InvalidStateTransitionException);
     });

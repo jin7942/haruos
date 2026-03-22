@@ -24,19 +24,24 @@ export class ScheduleAgentService {
   /**
    * 일정을 생성한다.
    *
-   * @param userId - 사용자 ID
+   * @param userId - 생성자 ID
    * @param dto - 일정 생성 정보
    * @returns 생성된 일정
    */
   async createSchedule(userId: string, dto: CreateScheduleRequestDto): Promise<Schedule> {
     const schedule = this.scheduleRepository.create({
-      userId,
+      createdBy: userId,
       title: dto.title,
       description: dto.description ?? null,
-      startDate: new Date(dto.startDate),
-      endDate: dto.endDate ? new Date(dto.endDate) : null,
+      startAt: new Date(dto.startAt),
+      endAt: dto.endAt ? new Date(dto.endAt) : null,
+      isAllDay: dto.isAllDay ?? false,
+      location: dto.location ?? null,
+      recurrenceRule: dto.recurrenceRule ?? null,
+      reminderMinutes: dto.reminderMinutes ?? null,
+      projectId: dto.projectId ?? null,
       clickupTaskId: dto.clickupTaskId ?? null,
-      status: ScheduleStatus.PENDING,
+      status: ScheduleStatus.SCHEDULED,
     });
 
     const saved = await this.scheduleRepository.save(schedule);
@@ -60,8 +65,8 @@ export class ScheduleAgentService {
 
     if (dto.title !== undefined) schedule.title = dto.title;
     if (dto.description !== undefined) schedule.description = dto.description;
-    if (dto.startDate !== undefined) schedule.startDate = new Date(dto.startDate);
-    if (dto.endDate !== undefined) schedule.endDate = new Date(dto.endDate);
+    if (dto.startAt !== undefined) schedule.startAt = new Date(dto.startAt);
+    if (dto.endAt !== undefined) schedule.endAt = new Date(dto.endAt);
 
     if (dto.status === ScheduleStatus.CONFIRMED) {
       schedule.confirm();
@@ -75,25 +80,25 @@ export class ScheduleAgentService {
   /**
    * 사용자의 일정 목록을 조회한다.
    *
-   * @param userId - 사용자 ID
+   * @param userId - 생성자 ID
    * @param from - 조회 시작일 (선택)
    * @param to - 조회 종료일 (선택)
    * @returns 일정 목록
    */
   async getSchedules(userId: string, from?: Date, to?: Date): Promise<Schedule[]> {
-    const where: Record<string, unknown> = { userId };
+    const where: Record<string, unknown> = { createdBy: userId };
 
     if (from && to) {
-      where.startDate = Between(from, to);
+      where.startAt = Between(from, to);
     } else if (from) {
-      where.startDate = MoreThanOrEqual(from);
+      where.startAt = MoreThanOrEqual(from);
     } else if (to) {
-      where.startDate = LessThanOrEqual(to);
+      where.startAt = LessThanOrEqual(to);
     }
 
     return this.scheduleRepository.find({
       where,
-      order: { startDate: 'ASC' },
+      order: { startAt: 'ASC' },
     });
   }
 
@@ -116,7 +121,6 @@ export class ScheduleAgentService {
 
   /**
    * 일정을 ClickUp 태스크와 동기화한다.
-   * 현재는 stub 구현.
    *
    * @param scheduleId - 일정 ID
    * @throws ResourceNotFoundException 일정이 존재하지 않는 경우
@@ -131,7 +135,7 @@ export class ScheduleAgentService {
       await this.clickUpService.updateTask(schedule.clickupTaskId, {
         name: schedule.title,
         description: schedule.description ?? undefined,
-        dueDate: schedule.endDate?.toISOString() ?? schedule.startDate.toISOString(),
+        dueDate: schedule.endAt?.toISOString() ?? schedule.startAt.toISOString(),
       });
       this.logger.log(`ClickUp 태스크 업데이트: taskId=${schedule.clickupTaskId}`);
     } else {
@@ -139,7 +143,7 @@ export class ScheduleAgentService {
         name: schedule.title,
         description: schedule.description ?? undefined,
         listId: '',
-        dueDate: schedule.endDate?.toISOString() ?? schedule.startDate.toISOString(),
+        dueDate: schedule.endAt?.toISOString() ?? schedule.startAt.toISOString(),
       });
       schedule.clickupTaskId = task.id;
       await this.scheduleRepository.save(schedule);

@@ -6,9 +6,6 @@ export class ScheduleResponseDto {
   @ApiProperty({ description: '일정 ID' })
   id: string;
 
-  @ApiProperty({ description: '사용자 ID' })
-  userId: string;
-
   @ApiProperty({ description: '일정 제목' })
   title: string;
 
@@ -16,41 +13,47 @@ export class ScheduleResponseDto {
   description: string | null;
 
   @ApiProperty({ description: '시작일시' })
-  startDate: Date;
+  startAt: string;
 
   @ApiPropertyOptional({ description: '종료일시' })
-  endDate: Date | null;
+  endAt: string | null;
+
+  @ApiProperty({ description: '종일 일정 여부' })
+  isAllDay: boolean;
+
+  @ApiPropertyOptional({ description: '장소' })
+  location: string | null;
+
+  @ApiProperty({ description: '상태', enum: ['SCHEDULED', 'CONFIRMED', 'CANCELLED'] })
+  status: string;
 
   @ApiPropertyOptional({ description: 'ClickUp 태스크 ID' })
   clickupTaskId: string | null;
 
-  @ApiProperty({ description: '상태', enum: ['PENDING', 'CONFIRMED', 'CANCELLED'] })
-  status: string;
+  @ApiProperty({ description: '생성자 ID' })
+  createdBy: string;
 
   @ApiProperty({ description: '생성일시' })
-  createdAt: Date;
-
-  @ApiProperty({ description: '수정일시' })
-  updatedAt: Date;
+  createdAt: string;
 
   /**
    * Schedule 엔티티에서 DTO로 변환한다.
    *
    * @param entity - Schedule 엔티티
-   * @returns ScheduleResponseDto
    */
   static from(entity: Schedule): ScheduleResponseDto {
     const dto = new ScheduleResponseDto();
     dto.id = entity.id;
-    dto.userId = entity.userId;
     dto.title = entity.title;
     dto.description = entity.description;
-    dto.startDate = entity.startDate;
-    dto.endDate = entity.endDate;
-    dto.clickupTaskId = entity.clickupTaskId;
+    dto.startAt = entity.startAt.toISOString();
+    dto.endAt = entity.endAt?.toISOString() ?? null;
+    dto.isAllDay = entity.isAllDay;
+    dto.location = entity.location;
     dto.status = entity.status;
-    dto.createdAt = entity.createdAt;
-    dto.updatedAt = entity.updatedAt;
+    dto.clickupTaskId = entity.clickupTaskId;
+    dto.createdBy = entity.createdBy;
+    dto.createdAt = entity.createdAt.toISOString();
     return dto;
   }
 }

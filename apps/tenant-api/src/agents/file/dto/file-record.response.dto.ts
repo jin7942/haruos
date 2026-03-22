@@ -1,36 +1,43 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { FileRecordEntity } from '../entities/file-record.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { File } from '../entities/file.entity';
 
-/** 파일 레코드 응답 DTO. */
+/** 파일 응답 DTO. */
 export class FileRecordResponseDto {
-  @ApiProperty({ description: '파일 레코드 ID' })
+  @ApiProperty({ description: '파일 ID' })
   id: string;
 
-  @ApiProperty({ description: '파일명' })
-  fileName: string;
+  @ApiProperty({ description: '원본 파일명' })
+  originalName: string;
 
   @ApiProperty({ description: 'MIME 타입' })
   mimeType: string;
 
   @ApiProperty({ description: '파일 크기 (bytes)' })
-  size: string;
+  sizeBytes: string;
 
-  @ApiProperty({ description: '업로드 일시' })
-  uploadedAt: Date;
+  @ApiProperty({ description: '파일 상태' })
+  status: string;
+
+  @ApiPropertyOptional({ description: '카테고리' })
+  category: string | null;
+
+  @ApiProperty({ description: '생성일시' })
+  createdAt: string;
 
   /**
-   * FileRecordEntity에서 DTO로 변환한다.
+   * File 엔티티에서 DTO로 변환한다.
    *
-   * @param entity - FileRecordEntity
-   * @returns FileRecordResponseDto
+   * @param entity - File 엔티티
    */
-  static from(entity: FileRecordEntity): FileRecordResponseDto {
+  static from(entity: File): FileRecordResponseDto {
     const dto = new FileRecordResponseDto();
     dto.id = entity.id;
-    dto.fileName = entity.fileName;
+    dto.originalName = entity.originalName;
     dto.mimeType = entity.mimeType;
-    dto.size = entity.size;
-    dto.uploadedAt = entity.uploadedAt;
+    dto.sizeBytes = entity.sizeBytes;
+    dto.status = entity.status;
+    dto.category = entity.category;
+    dto.createdAt = entity.createdAt.toISOString();
     return dto;
   }
 }

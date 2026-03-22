@@ -10,11 +10,12 @@ import { MetricEntity } from './entities/metric.entity';
 import { CostRecordEntity } from './entities/cost-record.entity';
 import { AiUsageRecordEntity } from './entities/ai-usage-record.entity';
 import { AlertConfigEntity } from './entities/alert-config.entity';
+import { AlertHistoryEntity } from './entities/alert-history.entity';
 import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MetricEntity, CostRecordEntity, AiUsageRecordEntity, AlertConfigEntity]),
+    TypeOrmModule.forFeature([MetricEntity, CostRecordEntity, AiUsageRecordEntity, AlertConfigEntity, AlertHistoryEntity]),
     TenantModule,
   ],
   controllers: [MonitoringController],
