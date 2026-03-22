@@ -78,6 +78,7 @@ describe('TenantService', () => {
         service.create(userId, {
           name: '테스트',
           slug: 'test-slug',
+          description: '테스트 설명',
           region: 'ap-northeast-2',
         }),
       ).rejects.toThrow(DuplicateResourceException);

@@ -43,14 +43,19 @@ export class KnowledgeAgentService {
     for (let i = 0; i < chunks.length; i++) {
       const chunkText = chunks[i];
 
-      // TODO(2026-03-22): pgvector 설정 후 실제 임베딩 벡터 저장 활성화
-      // const embedding = await this.aiGatewayService.generateEmbedding(chunkText);
+      let embedding: number[] | null = null;
+      try {
+        embedding = await this.aiGatewayService.generateEmbedding(chunkText);
+      } catch (error) {
+        this.logger.warn(`임베딩 생성 실패 (chunk ${i}), fallback to null: ${(error as Error).message}`);
+      }
 
       const chunk = this.chunkRepository.create({
         documentId,
         chunkIndex: i,
         content: chunkText,
-        tokenCount: Math.ceil(chunkText.length / 4), // 대략적인 토큰 수 추정
+        tokenCount: Math.ceil(chunkText.length / 4),
+        embedding,
       });
 
       savedChunks.push(await this.chunkRepository.save(chunk));
@@ -71,9 +76,38 @@ export class KnowledgeAgentService {
   async search(query: string, limit = 10): Promise<KnowledgeSearchResponseDto[]> {
     this.logger.log(`지식 검색: query="${query}", limit=${limit}`);
 
-    // TODO(2026-03-22): pgvector 코사인 유사도 검색으로 교체
-    // 1. const queryEmbedding = await this.aiGatewayService.generateEmbedding(query);
-    // 2. SELECT *, 1 - (embedding <=> $1) as score FROM document_chunks ORDER BY score DESC LIMIT $2
+    let queryEmbedding: number[] | null = null;
+    try {
+      queryEmbedding = await this.aiGatewayService.generateEmbedding(query);
+    } catch (error) {
+      this.logger.warn(`쿼리 임베딩 생성 실패, LIKE fallback: ${(error as Error).message}`);
+    }
+
+    // 벡터 검색 가능하면 코사인 유사도 사용, 불가하면 LIKE fallback
+    if (queryEmbedding) {
+      try {
+        const embeddingStr = `{${queryEmbedding.join(',')}}`;
+        const results = await this.chunkRepository.query(
+          `SELECT *, 1 - (embedding::vector <=> $1::vector) as score
+           FROM document_chunks
+           WHERE embedding IS NOT NULL
+           ORDER BY score DESC
+           LIMIT $2`,
+          [embeddingStr, limit],
+        );
+        return results.map((row: { id: string; document_id: string; content: string; score: number }) => {
+          const chunk = new DocumentChunk();
+          chunk.id = row.id;
+          chunk.documentId = row.document_id;
+          chunk.content = row.content;
+          return KnowledgeSearchResponseDto.from(chunk, Number(row.score));
+        });
+      } catch (error) {
+        this.logger.warn(`벡터 검색 실패, LIKE fallback: ${(error as Error).message}`);
+      }
+    }
+
+    // LIKE fallback
     const chunks = await this.chunkRepository.find({
       where: { content: Like(`%${query}%`) },
       take: limit,
@@ -81,7 +115,6 @@ export class KnowledgeAgentService {
     });
 
     return chunks.map((chunk) => {
-      // stub: LIKE 매칭이므로 고정 점수 부여
       const score = 0.5;
       return KnowledgeSearchResponseDto.from(chunk, score);
     });

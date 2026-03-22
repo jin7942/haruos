@@ -22,7 +22,6 @@ export class DocumentChunk extends BaseEntity {
   @Column({ name: 'token_count', type: 'int' })
   tokenCount: number;
 
-  // TODO(2026-03-21): pgvector 설정 후 활성화
-  // @Column({ name: 'embedding', type: 'vector', nullable: true })
-  // embedding: number[] | null;
+  @Column({ name: 'embedding', type: 'float8', array: true, nullable: true })
+  embedding: number[] | null;
 }

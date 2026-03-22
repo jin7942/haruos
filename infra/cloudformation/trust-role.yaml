@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  HaruOS Cross-Account Trust Role.
+  사용자가 자기 AWS 계정에서 이 스택을 생성하면,
+  HaruOS 플랫폼이 STS AssumeRole로 리소스에 접근할 수 있다.
+
+Parameters:
+  HaruOSAccountId:
+    Type: String
+    Description: HaruOS 플랫폼의 AWS 계정 ID
+    AllowedPattern: '^[0-9]{12}$'
+    ConstraintDescription: 12자리 AWS 계정 ID를 입력하세요.
+
+  ExternalId:
+    Type: String
+    Description: >
+      HaruOS에서 발급한 External ID (CSRF 방지).
+      테넌트 생성 시 콘솔에서 확인 가능.
+    MinLength: 10
+    MaxLength: 100
+
+  RoleName:
+    Type: String
+    Default: HaruOS-TrustRole
+    Description: 생성할 IAM 역할 이름
+    AllowedPattern: '^HaruOS-TrustRole.*$'
+    ConstraintDescription: 역할 이름은 HaruOS-TrustRole로 시작해야 합니다.
+
+Resources:
+  HaruOSTrustRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${HaruOSAccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      Policies:
+        - PolicyName: HaruOS-ECS-Management
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # ECS 관리
+              - Effect: Allow
+                Action:
+                  - 'ecs:DescribeClusters'
+                  - 'ecs:DescribeServices'
+                  - 'ecs:DescribeTasks'
+                  - 'ecs:ListTasks'
+                  - 'ecs:UpdateService'
+                Resource: '*'
+              # CloudWatch 모니터링
+              - Effect: Allow
+                Action:
+                  - 'cloudwatch:GetMetricData'
+                  - 'cloudwatch:GetMetricStatistics'
+                  - 'cloudwatch:ListMetrics'
+                  - 'cloudwatch:DescribeAlarms'
+                Resource: '*'
+              # Cost Explorer
+              - Effect: Allow
+                Action:
+                  - 'ce:GetCostAndUsage'
+                  - 'ce:GetCostForecast'
+                Resource: '*'
+              # RDS 읽기
+              - Effect: Allow
+                Action:
+                  - 'rds:DescribeDBClusters'
+                  - 'rds:DescribeDBInstances'
+                Resource: '*'
+              # S3 (테넌트 버킷)
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !Sub 'arn:aws:s3:::haruos-tenant-*'
+                  - !Sub 'arn:aws:s3:::haruos-tenant-*/*'
+
+Outputs:
+  RoleArn:
+    Description: HaruOS에 등록할 Role ARN
+    Value: !GetAtt HaruOSTrustRole.Arn
+
+  ExternalId:
+    Description: 사용된 External ID
+    Value: !Ref ExternalId
+
+  StackId:
+    Description: CloudFormation Stack ID
+    Value: !Ref 'AWS::StackId'

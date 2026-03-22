@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import { BedrockClient, ListFoundationModelsCommand } from '@aws-sdk/client-bedrock';
 import { AwsCredentialPort } from '../ports/aws-credential.port';
+import { ExternalApiException } from '../../../common/exceptions/technical.exception';
 
 /**
  * AWS STS 어댑터. AwsCredentialPort의 구현체.
@@ -7,14 +10,31 @@ import { AwsCredentialPort } from '../ports/aws-credential.port';
  */
 @Injectable()
 export class StsAdapter extends AwsCredentialPort {
+  private readonly logger = new Logger(StsAdapter.name);
+
   /**
    * {@inheritDoc AwsCredentialPort.validateRole}
    */
   async validateRole(roleArn: string, externalId: string, region: string): Promise<boolean> {
-    // TODO(2026-03-21): AWS SDK STSClient를 사용하여 AssumeRole 시도.
-    // 성공하면 true, AccessDenied/MalformedPolicyDocument 등이면 false.
-    // 그 외 에러는 ExternalApiException으로 래핑.
-    throw new Error('Not implemented');
+    const client = new STSClient({ region });
+    try {
+      await client.send(
+        new AssumeRoleCommand({
+          RoleArn: roleArn,
+          RoleSessionName: 'haruos-validate',
+          ExternalId: externalId,
+          DurationSeconds: 900,
+        }),
+      );
+      return true;
+    } catch (error: unknown) {
+      const code = (error as { name?: string }).name ?? '';
+      if (code === 'AccessDenied' || code === 'MalformedPolicyDocument') {
+        this.logger.warn(`Role validation failed: ${roleArn}, code=${code}`);
+        return false;
+      }
+      throw new ExternalApiException('STS', `AssumeRole failed: ${(error as Error).message}`);
+    }
   }
 
   /**
@@ -24,18 +44,56 @@ export class StsAdapter extends AwsCredentialPort {
     roleArn: string,
     externalId: string,
   ): Promise<{ accessKeyId: string; secretAccessKey: string; sessionToken: string }> {
-    // TODO(2026-03-21): AWS SDK STSClient.assumeRole 호출.
-    // DurationSeconds: 3600 (1시간).
-    // Credentials에서 accessKeyId, secretAccessKey, sessionToken 추출.
-    throw new Error('Not implemented');
+    const client = new STSClient({});
+    try {
+      const result = await client.send(
+        new AssumeRoleCommand({
+          RoleArn: roleArn,
+          RoleSessionName: 'haruos-session',
+          ExternalId: externalId,
+          DurationSeconds: 3600,
+        }),
+      );
+
+      const credentials = result.Credentials;
+      if (!credentials?.AccessKeyId || !credentials.SecretAccessKey || !credentials.SessionToken) {
+        throw new ExternalApiException('STS', 'AssumeRole returned incomplete credentials');
+      }
+
+      return {
+        accessKeyId: credentials.AccessKeyId,
+        secretAccessKey: credentials.SecretAccessKey,
+        sessionToken: credentials.SessionToken,
+      };
+    } catch (error: unknown) {
+      if (error instanceof ExternalApiException) throw error;
+      throw new ExternalApiException('STS', `AssumeRole failed: ${(error as Error).message}`);
+    }
   }
 
   /**
    * {@inheritDoc AwsCredentialPort.checkBedrockAccess}
    */
   async checkBedrockAccess(roleArn: string, externalId: string, region: string): Promise<boolean> {
-    // TODO(2026-03-21): assumeRole로 임시 자격 획득 후
-    // BedrockClient.listFoundationModels 호출하여 Claude 모델 가용 여부 확인.
-    throw new Error('Not implemented');
+    try {
+      const tempCredentials = await this.assumeRole(roleArn, externalId);
+
+      const bedrockClient = new BedrockClient({
+        region,
+        credentials: {
+          accessKeyId: tempCredentials.accessKeyId,
+          secretAccessKey: tempCredentials.secretAccessKey,
+          sessionToken: tempCredentials.sessionToken,
+        },
+      });
+
+      const result = await bedrockClient.send(new ListFoundationModelsCommand({}));
+      const models = result.modelSummaries ?? [];
+      return models.some((m) => m.modelId?.includes('claude'));
+    } catch (error: unknown) {
+      if (error instanceof ExternalApiException) throw error;
+      this.logger.warn(`Bedrock access check failed: ${(error as Error).message}`);
+      return false;
+    }
   }
 }

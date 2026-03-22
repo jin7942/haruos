@@ -1,8 +1,12 @@
 import { Controller, Post, Delete, Body, Param, Query, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { KnowledgeAgentService } from './knowledge-agent.service';
 import { IndexDocumentRequestDto } from './dto/index-document.request.dto';
 import { KnowledgeSearchResponseDto } from './dto/knowledge-search.response.dto';
+import { Document } from '../document/entities/document.entity';
+import { ResourceNotFoundException, ValidationException } from '../../common/exceptions/business.exception';
 
 /**
  * 지식 에이전트 컨트롤러.
@@ -12,7 +16,11 @@ import { KnowledgeSearchResponseDto } from './dto/knowledge-search.response.dto'
 @ApiBearerAuth()
 @Controller('agents/knowledge')
 export class KnowledgeController {
-  constructor(private readonly knowledgeAgentService: KnowledgeAgentService) {}
+  constructor(
+    private readonly knowledgeAgentService: KnowledgeAgentService,
+    @InjectRepository(Document)
+    private readonly documentRepository: Repository<Document>,
+  ) {}
 
   /**
    * 문서를 인덱싱한다 (청크 분할 + 임베딩).
@@ -23,9 +31,14 @@ export class KnowledgeController {
   @ApiOperation({ summary: '문서 인덱싱 (청크 분할 + 임베딩)' })
   @ApiResponse({ status: 201 })
   async indexDocument(@Body() dto: IndexDocumentRequestDto): Promise<{ chunksCreated: number }> {
-    // TODO(2026-03-22): documentId로 Document 엔티티에서 content를 조회하는 로직 추가
-    // 현재는 간소화를 위해 DocumentAgentService를 통해 호출되는 것을 기대
-    const chunks = await this.knowledgeAgentService.indexDocument(dto.documentId, '');
+    const document = await this.documentRepository.findOne({ where: { id: dto.documentId } });
+    if (!document) {
+      throw new ResourceNotFoundException('Document', dto.documentId);
+    }
+    if (!document.content || document.content.trim().length === 0) {
+      throw new ValidationException('Document content is empty');
+    }
+    const chunks = await this.knowledgeAgentService.indexDocument(dto.documentId, document.content);
     return { chunksCreated: chunks.length };
   }
 

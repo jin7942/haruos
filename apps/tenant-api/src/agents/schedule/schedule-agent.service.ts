@@ -127,8 +127,23 @@ export class ScheduleAgentService {
       throw new ResourceNotFoundException('Schedule', scheduleId);
     }
 
-    // TODO(2026-03-22): ClickUp 태스크와 실제 동기화 구현
-    // schedule에 clickupTaskId가 있으면 updateTask, 없으면 createTask 호출
-    this.logger.log(`ClickUp 동기화 stub: scheduleId=${scheduleId}`);
+    if (schedule.clickupTaskId) {
+      await this.clickUpService.updateTask(schedule.clickupTaskId, {
+        name: schedule.title,
+        description: schedule.description ?? undefined,
+        dueDate: schedule.endDate?.toISOString() ?? schedule.startDate.toISOString(),
+      });
+      this.logger.log(`ClickUp 태스크 업데이트: taskId=${schedule.clickupTaskId}`);
+    } else {
+      const task = await this.clickUpService.createTask({
+        name: schedule.title,
+        description: schedule.description ?? undefined,
+        listId: '',
+        dueDate: schedule.endDate?.toISOString() ?? schedule.startDate.toISOString(),
+      });
+      schedule.clickupTaskId = task.id;
+      await this.scheduleRepository.save(schedule);
+      this.logger.log(`ClickUp 태스크 생성: taskId=${task.id}`);
+    }
   }
 }

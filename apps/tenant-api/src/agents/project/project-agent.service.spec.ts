@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { ProjectAgentService } from './project-agent.service';
 import { ProjectSyncEntity } from './entities/project-sync.entity';
 import { ClickUpService } from '../../core/clickup/clickup.service';
+import { AiGatewayService } from '../../core/ai-gateway/ai-gateway.service';
 import { ClickUpSpaceResponseDto } from '../../core/clickup/dto/clickup-task.response.dto';
 
 describe('ProjectAgentService', () => {
   let service: ProjectAgentService;
   let syncRepo: jest.Mocked<Repository<ProjectSyncEntity>>;
   let clickUpService: jest.Mocked<ClickUpService>;
+  let aiGatewayService: jest.Mocked<AiGatewayService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -31,12 +33,19 @@ describe('ProjectAgentService', () => {
             createTask: jest.fn(),
           },
         },
+        {
+          provide: AiGatewayService,
+          useValue: {
+            chat: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(ProjectAgentService);
     syncRepo = module.get(getRepositoryToken(ProjectSyncEntity));
     clickUpService = module.get(ClickUpService);
+    aiGatewayService = module.get(AiGatewayService);
   });
 
   describe('syncProjects', () => {
@@ -96,11 +105,31 @@ describe('ProjectAgentService', () => {
   });
 
   describe('processNaturalLanguage', () => {
-    it('stub 응답을 반환한다', async () => {
+    it('AI 응답을 파싱하여 태스크 변환 결과를 반환한다', async () => {
+      aiGatewayService.chat.mockResolvedValue({
+        content: JSON.stringify({ name: '회의 일정', description: '내일 회의', priority: 3, dueDate: null }),
+        model: 'claude-sonnet',
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+
       const result = await service.processNaturalLanguage('내일 회의 일정 잡아줘');
 
-      expect(result).toContain('자연어 처리 stub');
-      expect(result).toContain('내일 회의 일정 잡아줘');
+      expect(result).toContain('태스크 변환 완료');
+      expect(result).toContain('회의 일정');
+      expect(aiGatewayService.chat).toHaveBeenCalled();
+    });
+
+    it('AI 응답 파싱 실패 시 원본 반환', async () => {
+      aiGatewayService.chat.mockResolvedValue({
+        content: 'invalid json',
+        model: 'claude-sonnet',
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+
+      const result = await service.processNaturalLanguage('잘못된 요청');
+
+      expect(result).toContain('태스크 변환 결과');
+      expect(result).toContain('invalid json');
     });
   });
 });

@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as dns from 'dns';
 import { DomainEntity } from './entities/domain.entity';
 import { CreateDomainRequestDto } from './dto/create-domain.request.dto';
 import { DomainResponseDto } from './dto/domain.response.dto';
@@ -16,6 +17,8 @@ const BASE_DOMAIN = 'haruos.app';
 
 @Injectable()
 export class DomainService {
+  private readonly logger = new Logger(DomainService.name);
+
   constructor(
     @InjectRepository(DomainEntity)
     private readonly domainRepository: Repository<DomainEntity>,
@@ -156,7 +159,7 @@ export class DomainService {
   ): Promise<DomainResponseDto> {
     const domain = await this.findOwnedDomain(userId, tenantId, domainId);
 
-    // TODO(2026-03-21): 실제 DNS CNAME 레코드 조회 로직 추가
+    await this.verifyCnameRecord(domain.domain);
     domain.verify();
     await this.domainRepository.save(domain);
     return DomainResponseDto.from(domain);
@@ -184,6 +187,27 @@ export class DomainService {
       throw new ResourceNotFoundException('Domain', domainId);
     }
     return domain;
+  }
+
+  /**
+   * DNS CNAME 레코드를 조회하여 도메인이 올바르게 설정되었는지 검증한다.
+   *
+   * @param domainName - 검증할 도메인명
+   * @throws ValidationException CNAME 레코드가 없거나 조회 실패 시
+   */
+  private async verifyCnameRecord(domainName: string): Promise<void> {
+    try {
+      const records = await dns.promises.resolveCname(domainName);
+      if (!records || records.length === 0) {
+        throw new ValidationException(`No CNAME record found for ${domainName}`);
+      }
+      this.logger.log(`CNAME verified for ${domainName}: ${records.join(', ')}`);
+    } catch (error: unknown) {
+      if (error instanceof ValidationException) throw error;
+      throw new ValidationException(
+        `DNS CNAME lookup failed for ${domainName}: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**

@@ -1,0 +1,84 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: vars
+        run: echo "IMAGE_TAG=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      # ── Docker Build & Push ──────────────────────────────────────
+      - name: Build and push console-api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/console-api.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/haruos/console-api:${{ steps.vars.outputs.IMAGE_TAG }}
+
+      - name: Build and push console-web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/console-web.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/haruos/console-web:${{ steps.vars.outputs.IMAGE_TAG }}
+
+      - name: Build and push tenant (api+web)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/tenant.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/haruos/tenant-api:${{ steps.vars.outputs.IMAGE_TAG }}
+
+      # ── ECS Deploy ───────────────────────────────────────────────
+      - name: Update console-api ECS service
+        run: |
+          aws ecs update-service \
+            --cluster haruos-prod-cluster \
+            --service haruos-prod-console-api \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Update console-web ECS service
+        run: |
+          aws ecs update-service \
+            --cluster haruos-prod-cluster \
+            --service haruos-prod-console-web \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for services stable
+        run: |
+          aws ecs wait services-stable \
+            --cluster haruos-prod-cluster \
+            --services haruos-prod-console-api haruos-prod-console-web \
+            --region ${{ env.AWS_REGION }}

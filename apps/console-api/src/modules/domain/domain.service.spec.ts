@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as dns from 'dns';
 import { DomainService } from './domain.service';
 import { DomainEntity } from './entities/domain.entity';
 import { TenantService } from '../tenant/tenant.service';
@@ -11,6 +12,12 @@ import {
   InvalidStateTransitionException,
   ValidationException,
 } from '../../common/exceptions/business.exception';
+
+jest.mock('dns', () => ({
+  promises: {
+    resolveCname: jest.fn().mockResolvedValue(['target.haruos.app']),
+  },
+}));
 
 describe('DomainService', () => {
   let service: DomainService;

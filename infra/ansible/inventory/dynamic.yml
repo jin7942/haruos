@@ -1,0 +1,7 @@
+# HaruOS는 ECS Fargate 기반이므로 SSH 인벤토리가 아닌
+# localhost에서 AWS CLI/SDK를 통해 작업한다.
+plugin: host_list
+hosts:
+  localhost:
+    ansible_connection: local
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"

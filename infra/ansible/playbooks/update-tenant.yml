@@ -1,0 +1,95 @@
+---
+# =============================================================================
+# HaruOS 테넌트 업데이트 플레이북
+# - 새 이미지 배포 (ECS 태스크 정의 업데이트)
+# - DB 마이그레이션 (필요 시)
+# =============================================================================
+- name: Update HaruOS Tenant
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    tenant_slug: "{{ lookup('env', 'TENANT_SLUG') }}"
+    tenant_id: "{{ lookup('env', 'TENANT_ID') }}"
+    image_tag: "{{ lookup('env', 'IMAGE_TAG') | default('latest', true) }}"
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('ap-northeast-2', true) }}"
+    environment: "{{ lookup('env', 'ENVIRONMENT') | default('prod', true) }}"
+    project: "haruos"
+    name_prefix: "{{ project }}-{{ environment }}-{{ tenant_slug }}"
+    run_migration: "{{ lookup('env', 'RUN_MIGRATION') | default('false', true) | bool }}"
+
+  pre_tasks:
+    - name: 필수 변수 검증
+      ansible.builtin.assert:
+        that:
+          - tenant_slug | length > 0
+          - tenant_id | length > 0
+        fail_msg: "TENANT_SLUG, TENANT_ID 환경변수가 필요합니다."
+
+  tasks:
+    # ── 1. DB 마이그레이션 (선택) ────────────────────────────────────
+    - name: 테넌트 RDS 엔드포인트 조회
+      ansible.builtin.command:
+        cmd: >
+          aws rds describe-db-clusters
+          --db-cluster-identifier {{ name_prefix }}-db
+          --query 'DBClusters[0].Endpoint'
+          --output text
+          --region {{ aws_region }}
+      register: rds_endpoint
+      changed_when: false
+      when: run_migration
+
+    - name: 테넌트 DB 비밀번호 조회 (SSM)
+      ansible.builtin.command:
+        cmd: >
+          aws ssm get-parameter
+          --name "/{{ project }}-{{ environment }}/tenant/{{ tenant_slug }}/db/password"
+          --with-decryption
+          --query 'Parameter.Value'
+          --output text
+          --region {{ aws_region }}
+      register: db_password
+      changed_when: false
+      no_log: true
+      when: run_migration
+
+    - name: Flyway 마이그레이션 실행
+      community.docker.docker_container:
+        name: "flyway-{{ tenant_slug }}"
+        image: flyway/flyway:10
+        command: migrate
+        env:
+          FLYWAY_URL: "jdbc:postgresql://{{ rds_endpoint.stdout }}:5432/haruos_tenant"
+          FLYWAY_USER: "haruos"
+          FLYWAY_PASSWORD: "{{ db_password.stdout }}"
+        volumes:
+          - "{{ playbook_dir }}/../../flyway/tenant:/flyway/sql:ro"
+        state: started
+        auto_remove: true
+      when: run_migration
+
+    # ── 2. ECS 서비스 강제 재배포 (새 이미지 pull) ───────────────────
+    - name: ECS 서비스 강제 재배포
+      ansible.builtin.command:
+        cmd: >
+          aws ecs update-service
+          --cluster {{ project }}-{{ environment }}-cluster
+          --service {{ name_prefix }}
+          --force-new-deployment
+          --region {{ aws_region }}
+      changed_when: true
+
+    - name: ECS 서비스 안정화 대기
+      ansible.builtin.command:
+        cmd: >
+          aws ecs wait services-stable
+          --cluster {{ project }}-{{ environment }}-cluster
+          --services {{ name_prefix }}
+          --region {{ aws_region }}
+      changed_when: false
+
+    - name: 테넌트 업데이트 완료
+      ansible.builtin.debug:
+        msg: "테넌트 '{{ tenant_slug }}' 업데이트 완료 (image_tag: {{ image_tag }})"
