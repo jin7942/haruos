@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ClickUpApiPort } from './ports/clickup-api.port';
 import { CreateClickUpTaskRequestDto } from './dto/create-clickup-task.request.dto';
 import {
@@ -6,6 +6,7 @@ import {
   ClickUpSpaceResponseDto,
   ClickUpListResponseDto,
 } from './dto/clickup-task.response.dto';
+import { ClickUpSyncResponseDto } from './dto/clickup-sync.response.dto';
 
 /**
  * ClickUp 서비스.
@@ -13,6 +14,8 @@ import {
  */
 @Injectable()
 export class ClickUpService {
+  private readonly logger = new Logger(ClickUpService.name);
+
   constructor(private readonly clickUpApi: ClickUpApiPort) {}
 
   /**
@@ -66,5 +69,27 @@ export class ClickUpService {
    */
   async getLists(spaceId: string): Promise<ClickUpListResponseDto[]> {
     return this.clickUpApi.getLists(spaceId);
+  }
+
+  /**
+   * 전체 ClickUp 데이터를 동기화한다.
+   * Space → List → Task 순으로 조회하여 동기화 결과를 반환한다.
+   *
+   * @returns 동기화 결과 (Space/Task 수)
+   */
+  async syncAll(): Promise<ClickUpSyncResponseDto> {
+    const spaces = await this.clickUpApi.getSpaces();
+    let totalTasks = 0;
+
+    for (const space of spaces) {
+      const lists = await this.clickUpApi.getLists(space.id);
+      for (const list of lists) {
+        const tasks = await this.clickUpApi.getTasks(list.id);
+        totalTasks += tasks.length;
+      }
+    }
+
+    this.logger.log(`ClickUp 동기화 완료: spaces=${spaces.length}, tasks=${totalTasks}`);
+    return ClickUpSyncResponseDto.of(spaces.length, totalTasks);
   }
 }

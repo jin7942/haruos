@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { KnowledgeAgentService } from './knowledge-agent.service';
 import { IndexDocumentRequestDto } from './dto/index-document.request.dto';
 import { KnowledgeSearchResponseDto } from './dto/knowledge-search.response.dto';
+import { AskQuestionRequestDto } from './dto/ask-question.request.dto';
+import { AskQuestionResponseDto } from './dto/ask-question.response.dto';
 import { Document } from '../document/entities/document.entity';
 import { ResourceNotFoundException, ValidationException } from '../../common/exceptions/business.exception';
 
@@ -59,6 +61,20 @@ export class KnowledgeController {
     @Query('limit') limit?: string,
   ): Promise<KnowledgeSearchResponseDto[]> {
     return this.knowledgeAgentService.search(query, limit ? parseInt(limit, 10) : undefined);
+  }
+
+  /**
+   * RAG 기반 질의응답.
+   * 관련 문서 청크를 검색하고 AI가 답변을 생성한다.
+   *
+   * @param dto - 질문 요청
+   * @returns AI 답변 + 출처 청크 목록
+   */
+  @Post('ask')
+  @ApiOperation({ summary: 'RAG 기반 질의응답' })
+  @ApiResponse({ status: 201, type: AskQuestionResponseDto })
+  askQuestion(@Body() dto: AskQuestionRequestDto): Promise<AskQuestionResponseDto> {
+    return this.knowledgeAgentService.askQuestion(dto.question);
   }
 
   /**

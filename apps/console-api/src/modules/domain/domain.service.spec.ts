@@ -12,6 +12,7 @@ import {
   InvalidStateTransitionException,
   ValidationException,
 } from '../../common/exceptions/business.exception';
+import { ExternalApiException } from '../../common/exceptions/technical.exception';
 
 jest.mock('dns', () => ({
   promises: {
@@ -272,6 +273,80 @@ describe('DomainService', () => {
 
       await expect(service.verifyDns(userId, tenantId, domainId)).rejects.toThrow(
         InvalidStateTransitionException,
+      );
+    });
+  });
+
+  describe('validateCloudflare', () => {
+    const dto = { apiToken: 'cf-token-xxx', zoneId: 'zone-id-xxx' };
+
+    beforeEach(() => {
+      tenantService.findOne.mockResolvedValue(tenantResponse);
+    });
+
+    it('유효한 Cloudflare 토큰과 Zone ID를 검증한다', async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          success: true,
+          result: { name: 'example.com', status: 'active' },
+        }),
+      };
+      global.fetch = jest.fn().mockResolvedValue(mockResponse);
+
+      const result = await service.validateCloudflare(userId, tenantId, dto);
+
+      expect(result.valid).toBe(true);
+      expect(result.zoneName).toBe('example.com');
+      expect(result.zoneStatus).toBe('active');
+      expect(global.fetch).toHaveBeenCalledWith(
+        `https://api.cloudflare.com/client/v4/zones/${dto.zoneId}`,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${dto.apiToken}`,
+          }),
+        }),
+      );
+    });
+
+    it('인증 실패 시 ValidationException을 던진다', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+      });
+
+      await expect(service.validateCloudflare(userId, tenantId, dto)).rejects.toThrow(
+        ValidationException,
+      );
+    });
+
+    it('Cloudflare API 오류 시 ExternalApiException을 던진다', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      });
+
+      await expect(service.validateCloudflare(userId, tenantId, dto)).rejects.toThrow(
+        ExternalApiException,
+      );
+    });
+
+    it('네트워크 오류 시 ExternalApiException을 던진다', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      await expect(service.validateCloudflare(userId, tenantId, dto)).rejects.toThrow(
+        ExternalApiException,
+      );
+    });
+
+    it('소유자가 아니면 ResourceNotFoundException을 던진다', async () => {
+      tenantService.findOne.mockRejectedValue(
+        new ResourceNotFoundException('Tenant', tenantId),
+      );
+
+      await expect(service.validateCloudflare(userId, tenantId, dto)).rejects.toThrow(
+        ResourceNotFoundException,
       );
     });
   });

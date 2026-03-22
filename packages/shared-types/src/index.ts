@@ -10,3 +10,4 @@ export * from './aws.types';
 export * from './haru.types';
 export * from './agent.types';
 export * from './websocket.types';
+export * from './backup.types';

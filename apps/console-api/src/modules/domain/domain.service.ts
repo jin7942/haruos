@@ -5,12 +5,15 @@ import * as dns from 'dns';
 import { DomainEntity } from './entities/domain.entity';
 import { CreateDomainRequestDto } from './dto/create-domain.request.dto';
 import { DomainResponseDto } from './dto/domain.response.dto';
+import { ValidateCloudflareRequestDto } from './dto/validate-cloudflare.request.dto';
+import { ValidateCloudflareResponseDto } from './dto/validate-cloudflare.response.dto';
 import { TenantService } from '../tenant/tenant.service';
 import {
   ResourceNotFoundException,
   DuplicateResourceException,
   ValidationException,
 } from '../../common/exceptions/business.exception';
+import { ExternalApiException } from '../../common/exceptions/technical.exception';
 
 /** 기본 서브도메인 베이스 */
 const BASE_DOMAIN = 'haruos.app';
@@ -207,6 +210,58 @@ export class DomainService {
       throw new ValidationException(
         `DNS CNAME lookup failed for ${domainName}: ${(error as Error).message}`,
       );
+    }
+  }
+
+  /**
+   * Cloudflare API 토큰과 Zone ID를 검증한다.
+   * Cloudflare API를 호출하여 토큰 유효성과 Zone 접근 가능 여부를 확인.
+   *
+   * @param userId - JWT에서 추출한 소유자 ID
+   * @param tenantId - 테넌트 ID
+   * @param dto - Cloudflare API 토큰 + Zone ID
+   * @returns 검증 결과 (Zone 이름, 상태 포함)
+   * @throws ResourceNotFoundException 테넌트가 없거나 소유자가 아닌 경우
+   * @throws ValidationException Cloudflare 인증 실패 시
+   * @throws ExternalApiException Cloudflare API 호출 실패 시
+   */
+  async validateCloudflare(
+    userId: string,
+    tenantId: string,
+    dto: ValidateCloudflareRequestDto,
+  ): Promise<ValidateCloudflareResponseDto> {
+    await this.tenantService.findOne(userId, tenantId);
+
+    const url = `https://api.cloudflare.com/client/v4/zones/${dto.zoneId}`;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${dto.apiToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new ValidationException('Invalid Cloudflare API token or insufficient permissions');
+        }
+        throw new ExternalApiException('Cloudflare', `HTTP ${response.status}`);
+      }
+
+      const body = (await response.json()) as { success: boolean; result?: { name: string; status: string } };
+      if (!body.success || !body.result) {
+        throw new ValidationException('Cloudflare Zone not found or inaccessible');
+      }
+
+      const zone = body.result;
+      this.logger.log(`Cloudflare zone validated: name=${zone.name}, status=${zone.status}`);
+
+      return ValidateCloudflareResponseDto.of(true, zone.name, zone.status);
+    } catch (error: unknown) {
+      if (error instanceof ValidationException || error instanceof ExternalApiException) {
+        throw error;
+      }
+      throw new ExternalApiException('Cloudflare', (error as Error).message);
     }
   }
 

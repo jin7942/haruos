@@ -41,6 +41,20 @@ export interface KnowledgeSearchResponse {
   score: number;
 }
 
+/** RAG 답변의 출처 청크 정보. */
+export interface SourceChunk {
+  chunkId: string;
+  documentId: string;
+  content: string;
+  score: number;
+}
+
+/** RAG 질의응답 응답. */
+export interface KnowledgeAskResponse {
+  answer: string;
+  sources: SourceChunk[];
+}
+
 /** 파일 레코드 응답. */
 export interface FileRecordResponse {
   id: string;

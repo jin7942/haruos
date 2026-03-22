@@ -4,16 +4,21 @@ import { Repository } from 'typeorm';
 import { Document, DocumentStatus } from './entities/document.entity';
 import { CreateDocumentRequestDto } from './dto/create-document.request.dto';
 import { UpdateDocumentRequestDto } from './dto/update-document.request.dto';
+import { ShareLinkResponseDto } from './dto/share-link.response.dto';
 import { AiGatewayService } from '../../core/ai-gateway/ai-gateway.service';
 import { DocEngineService } from '../../core/doc-engine/doc-engine.service';
+import { StorageService } from '../../core/storage/storage.service';
 import {
   ResourceNotFoundException,
   ValidationException,
 } from '../../common/exceptions/business.exception';
 
+/** 공유 링크 기본 만료 시간 (초) */
+const SHARE_LINK_EXPIRES_IN = 3600;
+
 /**
  * 문서 에이전트 서비스.
- * 문서 CRUD, AI 요약, Action Item 추출, DOCX 변환을 담당한다.
+ * 문서 CRUD, AI 요약, Action Item 추출, DOCX 변환, 공유 링크를 담당한다.
  */
 @Injectable()
 export class DocumentAgentService {
@@ -24,6 +29,7 @@ export class DocumentAgentService {
     private readonly documentRepository: Repository<Document>,
     private readonly aiGatewayService: AiGatewayService,
     private readonly docEngineService: DocEngineService,
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -167,5 +173,30 @@ export class DocumentAgentService {
 
     this.logger.log(`DOCX 변환 시작: id=${documentId}`);
     return this.docEngineService.markdownToDocx(document.content, document.title);
+  }
+
+  /**
+   * 문서의 공유 링크(presigned URL)를 생성한다.
+   * DOCX로 변환 후 S3에 업로드하고 presigned URL을 반환한다.
+   *
+   * @param documentId - 문서 ID
+   * @returns presigned URL 및 만료 시간
+   * @throws ResourceNotFoundException 문서가 존재하지 않는 경우
+   * @throws ValidationException 문서 내용이 비어있는 경우
+   */
+  async getShareLink(documentId: string): Promise<ShareLinkResponseDto> {
+    const buffer = await this.exportToDocx(documentId);
+
+    const s3Key = `shared/documents/${documentId}.docx`;
+    await this.storageService.upload(
+      s3Key,
+      buffer,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+
+    const fileInfo = await this.storageService.getFileInfo(s3Key, SHARE_LINK_EXPIRES_IN);
+    this.logger.log(`공유 링크 생성: id=${documentId}, key=${s3Key}`);
+
+    return ShareLinkResponseDto.of(fileInfo.url, SHARE_LINK_EXPIRES_IN);
   }
 }

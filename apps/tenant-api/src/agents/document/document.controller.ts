@@ -5,10 +5,11 @@ import { DocumentAgentService } from './document-agent.service';
 import { CreateDocumentRequestDto } from './dto/create-document.request.dto';
 import { UpdateDocumentRequestDto } from './dto/update-document.request.dto';
 import { DocumentResponseDto } from './dto/document.response.dto';
+import { ShareLinkResponseDto } from './dto/share-link.response.dto';
 
 /**
  * 문서 에이전트 컨트롤러.
- * 문서 CRUD, AI 요약, Action Item 추출, DOCX 변환 API를 제공한다.
+ * 문서 CRUD, AI 요약, Action Item 추출, DOCX 변환, 공유 링크 API를 제공한다.
  */
 @ApiTags('Document Agent')
 @ApiBearerAuth()
@@ -111,6 +112,43 @@ export class DocumentController {
   @ApiOperation({ summary: '문서 DOCX 내보내기' })
   @ApiResponse({ status: 200, description: 'DOCX 파일 바이너리' })
   async exportToDocx(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    await this.sendDocxResponse(id, res);
+  }
+
+  /**
+   * 문서를 DOCX 파일로 다운로드한다 (planning.md 엔드포인트 호환).
+   *
+   * @param id - 문서 ID
+   * @param res - HTTP 응답
+   */
+  @Get(':id/download/docx')
+  @ApiOperation({ summary: '문서 DOCX 다운로드' })
+  @ApiResponse({ status: 200, description: 'DOCX 파일 바이너리' })
+  async downloadDocx(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    await this.sendDocxResponse(id, res);
+  }
+
+  /**
+   * 문서의 공유 링크(presigned URL)를 생성한다.
+   * 문서 DOCX를 S3에 업로드 후 presigned URL을 반환한다.
+   *
+   * @param id - 문서 ID
+   * @returns presigned URL 및 만료 시간
+   */
+  @Get(':id/share')
+  @ApiOperation({ summary: '문서 공유 링크 생성 (presigned URL)' })
+  @ApiResponse({ status: 200, type: ShareLinkResponseDto })
+  async share(@Param('id') id: string): Promise<ShareLinkResponseDto> {
+    return this.documentAgentService.getShareLink(id);
+  }
+
+  /**
+   * DOCX 바이너리를 HTTP 응답으로 전송한다.
+   *
+   * @param id - 문서 ID
+   * @param res - HTTP 응답
+   */
+  private async sendDocxResponse(id: string, res: Response): Promise<void> {
     const buffer = await this.documentAgentService.exportToDocx(id);
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

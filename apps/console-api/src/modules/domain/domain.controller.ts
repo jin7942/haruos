@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { Request } from 'express';
 import { DomainService } from './domain.service';
 import { CreateDomainRequestDto } from './dto/create-domain.request.dto';
+import { ValidateCloudflareRequestDto } from './dto/validate-cloudflare.request.dto';
+import { ValidateCloudflareResponseDto } from './dto/validate-cloudflare.response.dto';
 import { DomainResponseDto } from './dto/domain.response.dto';
 
 @ApiTags('Domain')
@@ -82,6 +84,25 @@ export class DomainController {
     @Param('domainId') domainId: string,
   ): Promise<DomainResponseDto> {
     return this.domainService.setPrimary((req as any).user.sub, tenantId, domainId);
+  }
+
+  /**
+   * Cloudflare API 토큰 + Zone ID를 검증한다.
+   *
+   * @param req - HTTP 요청 (JWT 포함)
+   * @param tenantId - 테넌트 ID
+   * @param dto - Cloudflare API 토큰 + Zone ID
+   * @returns 검증 결과
+   */
+  @Post('validate-cloudflare')
+  @ApiOperation({ summary: 'Cloudflare API 토큰 + Zone 검증' })
+  @ApiResponse({ status: 201, type: ValidateCloudflareResponseDto })
+  validateCloudflare(
+    @Req() req: Request,
+    @Param('tenantId') tenantId: string,
+    @Body() dto: ValidateCloudflareRequestDto,
+  ): Promise<ValidateCloudflareResponseDto> {
+    return this.domainService.validateCloudflare((req as any).user.sub, tenantId, dto);
   }
 
   /**

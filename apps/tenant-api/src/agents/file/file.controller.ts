@@ -5,6 +5,7 @@ import {
   Delete,
   Param,
   Req,
+  Body,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -19,7 +20,11 @@ import {
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { FileAgentService } from './file-agent.service';
+import { NasOrganizerService } from './nas-organizer.service';
+import { NasScannerService } from './nas-scanner.service';
 import { FileRecordResponseDto } from './dto/file-record.response.dto';
+import { OrganizeFilesRequestDto } from './dto/organize-files.request.dto';
+import { OrganizeFilesResponseDto } from './dto/organize-files.response.dto';
 import { ValidationException } from '../../common/exceptions/business.exception';
 
 /**
@@ -30,7 +35,11 @@ import { ValidationException } from '../../common/exceptions/business.exception'
 @ApiBearerAuth()
 @Controller('agents/files')
 export class FileController {
-  constructor(private readonly fileAgentService: FileAgentService) {}
+  constructor(
+    private readonly fileAgentService: FileAgentService,
+    private readonly organizerService: NasOrganizerService,
+    private readonly scannerService: NasScannerService,
+  ) {}
 
   /**
    * 파일을 업로드한다.
@@ -95,6 +104,34 @@ export class FileController {
   async getFileUrl(@Param('id') id: string): Promise<{ url: string }> {
     const url = await this.fileAgentService.getFileUrl(id);
     return { url };
+  }
+
+  /**
+   * 미분류 파일을 자동 정리한다 (카테고리 부여 + ZIP 해제).
+   *
+   * @param dto - 정리 요청 (userId 선택)
+   * @returns 정리 결과
+   */
+  @Post('organize')
+  @ApiOperation({ summary: '파일 자동 정리 (카테고리 + ZIP 해제)' })
+  @ApiResponse({ status: 201, type: OrganizeFilesResponseDto })
+  async organizeFiles(@Body() dto: OrganizeFilesRequestDto): Promise<OrganizeFilesResponseDto> {
+    const result = await this.organizerService.organizeFiles(dto.userId);
+    return OrganizeFilesResponseDto.from(result);
+  }
+
+  /**
+   * 파일 카테고리별 요약 통계를 반환한다.
+   *
+   * @param req - HTTP 요청
+   * @returns 카테고리별 파일 수
+   */
+  @Get('summary')
+  @ApiOperation({ summary: '파일 카테고리 요약' })
+  @ApiResponse({ status: 200 })
+  async getCategorySummary(@Req() req: Request): Promise<Record<string, number>> {
+    const userId = (req as any).user.sub;
+    return this.scannerService.getCategorySummary(userId);
   }
 
   /**

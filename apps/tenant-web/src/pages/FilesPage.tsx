@@ -1,17 +1,33 @@
 import { useCallback, useState, type DragEvent } from 'react';
-import { useFiles, useUploadFile, useDeleteFile } from '../hooks/useFiles';
+import { useFiles, useUploadFile, useDeleteFile, useOrganizeFiles, useFileCategorySummary } from '../hooks/useFiles';
 import { getFileUrl } from '../api/file.api';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { formatDateTime } from '@haruos/shared-utils';
 
-/** 파일 관리 페이지. 드래그앤드롭 업로드 + 목록/다운로드/삭제. */
+const categoryLabels: Record<string, string> = {
+  DOCUMENT: '문서',
+  SPREADSHEET: '스프레드시트',
+  PRESENTATION: '프레젠테이션',
+  IMAGE: '이미지',
+  VIDEO: '동영상',
+  AUDIO: '오디오',
+  ARCHIVE: '압축',
+  TEXT: '텍스트',
+  OTHER: '기타',
+  UNCATEGORIZED: '미분류',
+};
+
+/** 파일 관리 페이지. 드래그앤드롭 업로드 + 카테고리 요약 + 자동 정리 + 목록. */
 export function FilesPage() {
   const { data: files, isLoading } = useFiles();
+  const { data: categorySummary } = useFileCategorySummary();
   const uploadFile = useUploadFile();
   const deleteFile = useDeleteFile();
+  const organizeFiles = useOrganizeFiles();
   const [isDragging, setIsDragging] = useState(false);
+  const [organizeResult, setOrganizeResult] = useState<{ organized: number; extracted: number } | null>(null);
 
   const handleUpload = useCallback(
     (fileList: FileList) => {
@@ -56,6 +72,13 @@ export function FilesPage() {
     }
   }
 
+  function handleOrganize() {
+    setOrganizeResult(null);
+    organizeFiles.mutate(undefined, {
+      onSuccess: (data) => setOrganizeResult({ organized: data.organized, extracted: data.extracted }),
+    });
+  }
+
   function formatSize(bytes: string): string {
     const n = parseInt(bytes, 10);
     if (isNaN(n)) return bytes;
@@ -66,7 +89,38 @@ export function FilesPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h2 className="text-xl font-bold text-gray-900">파일</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">파일</h2>
+        <Button
+          onClick={handleOrganize}
+          variant="secondary"
+          size="sm"
+          disabled={organizeFiles.isPending}
+        >
+          {organizeFiles.isPending ? '정리 중...' : '자동 정리'}
+        </Button>
+      </div>
+
+      {/* 정리 결과 */}
+      {organizeResult && (
+        <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+          파일 정리 완료: {organizeResult.organized}개 분류, {organizeResult.extracted}개 ZIP 해제
+        </div>
+      )}
+
+      {/* 카테고리 요약 */}
+      {categorySummary && Object.keys(categorySummary).length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {Object.entries(categorySummary).map(([category, count]) => (
+            <span
+              key={category}
+              className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600"
+            >
+              {categoryLabels[category] ?? category} {count}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 드래그앤드롭 업로드 영역 */}
       <div

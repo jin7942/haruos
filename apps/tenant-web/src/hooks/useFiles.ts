@@ -30,3 +30,23 @@ export function useDeleteFile() {
     },
   });
 }
+
+/** 파일 자동 정리 훅. */
+export function useOrganizeFiles() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId?: string) => fileApi.organizeFiles(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.invalidateQueries({ queryKey: ['files', 'summary'] });
+    },
+  });
+}
+
+/** 카테고리별 파일 요약 훅. */
+export function useFileCategorySummary() {
+  return useQuery({
+    queryKey: ['files', 'summary'],
+    queryFn: fileApi.getCategorySummary,
+  });
+}

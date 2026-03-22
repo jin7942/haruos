@@ -5,12 +5,14 @@ import { DocumentAgentService } from './document-agent.service';
 import { Document } from './entities/document.entity';
 import { AiGatewayModule } from '../../core/ai-gateway/ai-gateway.module';
 import { DocEngineModule } from '../../core/doc-engine/doc-engine.module';
+import { StorageModule } from '../../core/storage/storage.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Document]),
     AiGatewayModule,
     DocEngineModule,
+    StorageModule,
   ],
   controllers: [DocumentController],
   providers: [DocumentAgentService],

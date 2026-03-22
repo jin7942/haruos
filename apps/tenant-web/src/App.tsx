@@ -9,6 +9,9 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { FilesPage } from './pages/FilesPage';
+import { KnowledgePage } from './pages/KnowledgePage';
+import { BatchPage } from './pages/BatchPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,12 +37,15 @@ export function App() {
                 </ProtectedRoute>
               }
             >
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/chat/:conversationId" element={<ChatPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/schedules" element={<SchedulePage />} />
               <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/knowledge" element={<KnowledgePage />} />
               <Route path="/files" element={<FilesPage />} />
+              <Route path="/batch" element={<BatchPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/chat" replace />} />
           </Routes>

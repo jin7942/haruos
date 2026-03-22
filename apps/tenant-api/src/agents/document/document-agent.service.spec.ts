@@ -5,6 +5,7 @@ import { DocumentAgentService } from './document-agent.service';
 import { Document, DocumentStatus } from './entities/document.entity';
 import { AiGatewayService } from '../../core/ai-gateway/ai-gateway.service';
 import { DocEngineService } from '../../core/doc-engine/doc-engine.service';
+import { StorageService } from '../../core/storage/storage.service';
 import {
   ResourceNotFoundException,
   ValidationException,
@@ -16,6 +17,7 @@ describe('DocumentAgentService', () => {
   let documentRepo: jest.Mocked<Repository<Document>>;
   let aiGatewayService: jest.Mocked<AiGatewayService>;
   let docEngineService: jest.Mocked<DocEngineService>;
+  let storageService: jest.Mocked<StorageService>;
 
   const mockDocument: Partial<Document> = {
     id: 'd-1',
@@ -54,6 +56,13 @@ describe('DocumentAgentService', () => {
             markdownToDocx: jest.fn(),
           },
         },
+        {
+          provide: StorageService,
+          useValue: {
+            upload: jest.fn(),
+            getFileInfo: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -61,6 +70,7 @@ describe('DocumentAgentService', () => {
     documentRepo = module.get(getRepositoryToken(Document));
     aiGatewayService = module.get(AiGatewayService);
     docEngineService = module.get(DocEngineService);
+    storageService = module.get(StorageService);
   });
 
   describe('createDocument', () => {
@@ -159,6 +169,35 @@ describe('DocumentAgentService', () => {
         mockDocument.content,
         mockDocument.title,
       );
+    });
+  });
+
+  describe('getShareLink', () => {
+    it('문서를 S3에 업로드하고 presigned URL을 반환한다', async () => {
+      documentRepo.findOne.mockResolvedValue(mockDocument as Document);
+      const mockBuffer = Buffer.from('docx-content');
+      docEngineService.markdownToDocx.mockResolvedValue(mockBuffer);
+      storageService.upload.mockResolvedValue(undefined);
+      storageService.getFileInfo.mockResolvedValue({
+        key: 'shared/documents/d-1.docx',
+        url: 'https://s3.example.com/shared/documents/d-1.docx?signed=true',
+      });
+
+      const result = await service.getShareLink('d-1');
+
+      expect(result.url).toBe('https://s3.example.com/shared/documents/d-1.docx?signed=true');
+      expect(result.expiresIn).toBe(3600);
+      expect(storageService.upload).toHaveBeenCalledWith(
+        'shared/documents/d-1.docx',
+        mockBuffer,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
+    });
+
+    it('존재하지 않는 문서의 공유 링크 생성 시 ResourceNotFoundException을 던진다', async () => {
+      documentRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.getShareLink('not-found')).rejects.toThrow(ResourceNotFoundException);
     });
   });
 });

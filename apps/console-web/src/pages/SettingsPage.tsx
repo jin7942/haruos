@@ -7,10 +7,11 @@ import { Badge } from '../components/ui/Badge';
 import { useCfnTemplateUrl, useAwsCredential, useValidateAws } from '../hooks/useAws';
 import { useDomains, useCreateDomain, useDeleteDomain, useVerifyDns } from '../hooks/useDomains';
 import { useSubscription, useCancelSubscription } from '../hooks/useBilling';
+import { useBackups, useCreateBackup, useBackupDownload, useExportData } from '../hooks/useBackups';
 import { formatDate } from '@haruos/shared-utils';
 import type { BadgeVariant } from '../types/ui';
 
-type SettingsTab = 'aws' | 'domains' | 'billing';
+type SettingsTab = 'aws' | 'domains' | 'billing' | 'backup';
 
 /** 설정 페이지. AWS 연동, 도메인 관리, 빌링 탭. */
 export function SettingsPage() {
@@ -21,6 +22,7 @@ export function SettingsPage() {
     { key: 'aws', label: 'AWS 연동' },
     { key: 'domains', label: '도메인' },
     { key: 'billing', label: '빌링' },
+    { key: 'backup', label: '백업' },
   ];
 
   return (
@@ -51,6 +53,7 @@ export function SettingsPage() {
       {tab === 'aws' && <AwsTab tenantId={tenantId!} />}
       {tab === 'domains' && <DomainsTab tenantId={tenantId!} />}
       {tab === 'billing' && <BillingTab tenantId={tenantId!} />}
+      {tab === 'backup' && <BackupTab tenantId={tenantId!} />}
     </div>
   );
 }
@@ -283,6 +286,97 @@ function DomainsTab({ tenantId }: { tenantId: string }) {
         </div>
       )}
     </Card>
+  );
+}
+
+function getBackupStatusVariant(status: string): BadgeVariant {
+  switch (status) {
+    case 'COMPLETED': return 'success';
+    case 'IN_PROGRESS': return 'warning';
+    case 'FAILED': return 'danger';
+    default: return 'default';
+  }
+}
+
+/** 백업 탭. 백업 생성, 목록, 다운로드, 데이터 내보내기. */
+function BackupTab({ tenantId }: { tenantId: string }) {
+  const { data: backups, isLoading } = useBackups(tenantId);
+  const createBackup = useCreateBackup();
+  const downloadBackup = useBackupDownload();
+  const exportData = useExportData();
+
+  async function handleDownload(backupId: string) {
+    try {
+      const result = await downloadBackup.mutateAsync({ tenantId, backupId });
+      window.open(result.url, '_blank');
+    } catch {
+      // 에러는 mutation에서 처리
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>백업 관리</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                loading={createBackup.isPending}
+                onClick={() => createBackup.mutate(tenantId)}
+              >
+                백업 시작
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={exportData.isPending}
+                onClick={() => exportData.mutate(tenantId)}
+              >
+                데이터 내보내기
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        {isLoading && <p className="text-sm text-gray-400">로딩 중...</p>}
+
+        {backups && backups.length === 0 && (
+          <p className="text-sm text-gray-400">백업 이력이 없습니다.</p>
+        )}
+
+        {backups && backups.length > 0 && (
+          <div className="space-y-3">
+            {backups.map((b) => (
+              <div key={b.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getBackupStatusVariant(b.status)}>{b.status}</Badge>
+                    <span className="text-sm text-gray-600">{b.type}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-400">
+                    {formatDate(b.createdAt)}
+                    {b.sizeBytes != null && ` | ${Math.round(b.sizeBytes / 1024)} KB`}
+                    {b.errorMessage && ` | ${b.errorMessage}`}
+                  </div>
+                </div>
+                {b.status === 'COMPLETED' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={downloadBackup.isPending}
+                    onClick={() => handleDownload(b.id)}
+                  >
+                    다운로드
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 

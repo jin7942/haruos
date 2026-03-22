@@ -1,13 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository } from 'typeorm';
 import { DocumentChunk } from './entities/document-chunk.entity';
 import { KnowledgeSearchResponseDto } from './dto/knowledge-search.response.dto';
+import { AskQuestionResponseDto, SourceChunkDto } from './dto/ask-question.response.dto';
 import { AiGatewayService } from '../../core/ai-gateway/ai-gateway.service';
+import { VectorSearchService } from './vector-search.service';
 import { ResourceNotFoundException } from '../../common/exceptions/business.exception';
 
 /** 청크 분할 시 최대 문자 수 */
 const CHUNK_MAX_LENGTH = 500;
+
+/** RAG 컨텍스트에 포함할 최대 청크 수 */
+const RAG_CONTEXT_CHUNKS = 5;
+
+/** RAG 시스템 프롬프트 */
+const RAG_SYSTEM_PROMPT = `You are a helpful knowledge assistant. Answer the user's question based ONLY on the provided context. If the context doesn't contain enough information to answer, say so honestly. Always cite which document chunks you used. Respond in the same language as the question.`;
 
 /**
  * 지식 에이전트 서비스.
@@ -21,6 +29,7 @@ export class KnowledgeAgentService {
     @InjectRepository(DocumentChunk)
     private readonly chunkRepository: Repository<DocumentChunk>,
     private readonly aiGatewayService: AiGatewayService,
+    private readonly vectorSearchService: VectorSearchService,
   ) {}
 
   /**
@@ -43,10 +52,9 @@ export class KnowledgeAgentService {
     for (let i = 0; i < chunks.length; i++) {
       const chunkText = chunks[i];
 
-      let embeddingStr: string | null = null;
+      let embedding: number[] | null = null;
       try {
-        const embeddingVec = await this.aiGatewayService.generateEmbedding(chunkText);
-        embeddingStr = `[${embeddingVec.join(',')}]`;
+        embedding = await this.aiGatewayService.generateEmbedding(chunkText);
       } catch (error) {
         this.logger.warn(`임베딩 생성 실패 (chunk ${i}), fallback to null: ${(error as Error).message}`);
       }
@@ -56,7 +64,7 @@ export class KnowledgeAgentService {
         chunkIndex: i,
         content: chunkText,
         tokenCount: Math.ceil(chunkText.length / 4),
-        embedding: embeddingStr,
+        embedding,
       });
 
       const saved = await this.chunkRepository.save(chunk);
@@ -69,7 +77,7 @@ export class KnowledgeAgentService {
 
   /**
    * 쿼리와 유사한 문서 청크를 검색한다.
-   * 현재는 pgvector 미설정 상태로 단순 LIKE 검색으로 대체.
+   * 벡터 검색 가능 시 시맨틱 검색, 불가 시 키워드 fallback.
    *
    * @param query - 검색 쿼리
    * @param limit - 최대 결과 수 (기본: 10)
@@ -82,44 +90,76 @@ export class KnowledgeAgentService {
     try {
       queryEmbedding = await this.aiGatewayService.generateEmbedding(query);
     } catch (error) {
-      this.logger.warn(`쿼리 임베딩 생성 실패, LIKE fallback: ${(error as Error).message}`);
+      this.logger.warn(`쿼리 임베딩 생성 실패, 키워드 fallback: ${(error as Error).message}`);
     }
 
-    // 벡터 검색 가능하면 코사인 유사도 사용, 불가하면 LIKE fallback
     if (queryEmbedding) {
-      try {
-        const embeddingStr = `{${queryEmbedding.join(',')}}`;
-        const results = await this.chunkRepository.query(
-          `SELECT *, 1 - (embedding::vector <=> $1::vector) as score
-           FROM document_chunks
-           WHERE embedding IS NOT NULL
-           ORDER BY score DESC
-           LIMIT $2`,
-          [embeddingStr, limit],
-        );
-        return results.map((row: { id: string; document_id: string; content: string; score: number }) => {
-          const chunk = new DocumentChunk();
-          chunk.id = row.id;
-          chunk.documentId = row.document_id;
-          chunk.content = row.content;
-          return KnowledgeSearchResponseDto.from(chunk, Number(row.score));
-        });
-      } catch (error) {
-        this.logger.warn(`벡터 검색 실패, LIKE fallback: ${(error as Error).message}`);
+      const results = await this.vectorSearchService.semanticSearch(queryEmbedding, limit);
+      if (results.length > 0) {
+        return results.map((r) => KnowledgeSearchResponseDto.from(r.chunk, r.score));
       }
     }
 
-    // LIKE fallback
-    const chunks = await this.chunkRepository.find({
-      where: { content: Like(`%${query}%`) },
-      take: limit,
-      order: { chunkIndex: 'ASC' },
-    });
+    // 키워드 fallback
+    const keywordResults = await this.vectorSearchService.keywordSearch(query, limit);
+    return keywordResults.map((r) => KnowledgeSearchResponseDto.from(r.chunk, r.score));
+  }
 
-    return chunks.map((chunk) => {
-      const score = 0.5;
-      return KnowledgeSearchResponseDto.from(chunk, score);
-    });
+  /**
+   * RAG 기반 질의응답.
+   * 질문을 임베딩하여 관련 청크를 검색하고, 컨텍스트로 AI에게 질의한다.
+   *
+   * @param question - 사용자 질문
+   * @returns AI 답변과 출처 청크 목록
+   */
+  async askQuestion(question: string): Promise<AskQuestionResponseDto> {
+    this.logger.log(`RAG 질의: question="${question}"`);
+
+    // 1. 질문 임베딩 생성
+    let queryEmbedding: number[] | null = null;
+    try {
+      queryEmbedding = await this.aiGatewayService.generateEmbedding(question);
+    } catch (error) {
+      this.logger.warn(`질문 임베딩 생성 실패: ${(error as Error).message}`);
+    }
+
+    // 2. 관련 청크 검색
+    let searchResults = queryEmbedding
+      ? await this.vectorSearchService.semanticSearch(queryEmbedding, RAG_CONTEXT_CHUNKS)
+      : [];
+
+    // 시맨틱 검색 실패 시 키워드 fallback
+    if (searchResults.length === 0) {
+      searchResults = await this.vectorSearchService.keywordSearch(question, RAG_CONTEXT_CHUNKS);
+    }
+
+    if (searchResults.length === 0) {
+      return AskQuestionResponseDto.from(
+        '관련 문서를 찾을 수 없습니다. 먼저 문서를 인덱싱해주세요.',
+        [],
+      );
+    }
+
+    // 3. 컨텍스트 조립
+    const contextText = searchResults
+      .map((r, i) => `[Chunk ${i + 1} (doc: ${r.chunk.documentId})]:\n${r.chunk.content}`)
+      .join('\n\n');
+
+    // 4. AI 호출
+    const aiResponse = await this.aiGatewayService.chat([
+      { role: 'system', content: RAG_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: `Context:\n${contextText}\n\nQuestion: ${question}`,
+      },
+    ]);
+
+    // 5. 출처 정보 조립
+    const sources = searchResults.map((r) =>
+      SourceChunkDto.from(r.chunk.id, r.chunk.documentId, r.chunk.content, r.score),
+    );
+
+    return AskQuestionResponseDto.from(aiResponse.content, sources);
   }
 
   /**

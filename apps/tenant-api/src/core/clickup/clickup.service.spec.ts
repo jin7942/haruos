@@ -110,4 +110,43 @@ describe('ClickUpService', () => {
       expect(result[0].name).toBe('Sprint 1');
     });
   });
+
+  describe('syncAll', () => {
+    it('Space/List/Task를 순회하며 동기화 결과를 반환한다', async () => {
+      clickUpApi.getSpaces.mockResolvedValue([
+        ClickUpSpaceResponseDto.from('space-1', 'Dev'),
+        ClickUpSpaceResponseDto.from('space-2', 'Design'),
+      ]);
+      clickUpApi.getLists
+        .mockResolvedValueOnce([ClickUpListResponseDto.from('list-1', 'Sprint 1')])
+        .mockResolvedValueOnce([
+          ClickUpListResponseDto.from('list-2', 'Tasks'),
+          ClickUpListResponseDto.from('list-3', 'Backlog'),
+        ]);
+      clickUpApi.getTasks
+        .mockResolvedValueOnce([
+          ClickUpTaskResponseDto.from({ id: 't1', name: 'Task 1', status: 'Open', url: '' }),
+          ClickUpTaskResponseDto.from({ id: 't2', name: 'Task 2', status: 'Open', url: '' }),
+        ])
+        .mockResolvedValueOnce([
+          ClickUpTaskResponseDto.from({ id: 't3', name: 'Task 3', status: 'Open', url: '' }),
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.syncAll();
+
+      expect(result.syncedSpaces).toBe(2);
+      expect(result.syncedTasks).toBe(3);
+      expect(result.syncedAt).toBeDefined();
+    });
+
+    it('Space가 없으면 0/0을 반환한다', async () => {
+      clickUpApi.getSpaces.mockResolvedValue([]);
+
+      const result = await service.syncAll();
+
+      expect(result.syncedSpaces).toBe(0);
+      expect(result.syncedTasks).toBe(0);
+    });
+  });
 });
