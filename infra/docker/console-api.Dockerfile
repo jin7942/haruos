@@ -1,7 +1,7 @@
 FROM node:22-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
 COPY packages/shared-types/package.json packages/shared-types/
 COPY packages/shared-utils/package.json packages/shared-utils/
 COPY apps/console-api/package.json apps/console-api/
@@ -13,7 +13,7 @@ RUN pnpm --filter @haruos/shared-types build
 RUN pnpm --filter @haruos/shared-utils build
 RUN pnpm --filter @haruos/console-api build
 # pnpm deploy creates a self-contained directory with all dependencies
-RUN pnpm --filter @haruos/console-api deploy /prod
+RUN pnpm --filter @haruos/console-api deploy --legacy /prod
 
 FROM node:22-alpine
 WORKDIR /app

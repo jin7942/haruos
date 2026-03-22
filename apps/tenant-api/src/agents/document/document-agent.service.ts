@@ -99,6 +99,21 @@ export class DocumentAgentService {
   }
 
   /**
+   * 문서를 ID로 조회한다.
+   *
+   * @param id - 문서 ID
+   * @returns 문서 엔티티
+   * @throws ResourceNotFoundException 문서가 존재하지 않는 경우
+   */
+  async getDocument(id: string): Promise<Document> {
+    const document = await this.documentRepository.findOne({ where: { id } });
+    if (!document) {
+      throw new ResourceNotFoundException('Document', id);
+    }
+    return document;
+  }
+
+  /**
    * 문서 내용을 AI로 요약한다.
    *
    * @param documentId - 문서 ID

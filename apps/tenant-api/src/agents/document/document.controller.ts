@@ -57,6 +57,21 @@ export class DocumentController {
   }
 
   /**
+   * 문서 상세 정보를 조회한다.
+   *
+   * @param id - 문서 ID
+   * @returns 문서 상세 정보
+   */
+  @Get(':id')
+  @ApiOperation({ summary: '문서 상세 조회' })
+  @ApiResponse({ status: 200, type: DocumentResponseDto })
+  @ApiResponse({ status: 404, description: '문서를 찾을 수 없음' })
+  async getDocument(@Param('id') id: string): Promise<DocumentResponseDto> {
+    const document = await this.documentAgentService.getDocument(id);
+    return DocumentResponseDto.from(document);
+  }
+
+  /**
    * 문서를 수정한다.
    *
    * @param id - 문서 ID

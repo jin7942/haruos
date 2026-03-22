@@ -6,6 +6,7 @@ import { ClickUpService } from '../../core/clickup/clickup.service';
 import { ClickUpTaskResponseDto } from '../../core/clickup/dto/clickup-task.response.dto';
 import { CreateClickUpTaskRequestDto } from '../../core/clickup/dto/create-clickup-task.request.dto';
 import { AiGatewayService } from '../../core/ai-gateway/ai-gateway.service';
+import { ResourceNotFoundException } from '../../common/exceptions/business.exception';
 
 /**
  * 프로젝트 에이전트 서비스.
@@ -54,6 +55,21 @@ export class ProjectAgentService {
 
     this.logger.log(`ClickUp Space 동기화 완료: ${syncEntities.length}개`);
     return syncEntities;
+  }
+
+  /**
+   * 프로젝트 동기화 레코드를 ID로 조회한다.
+   *
+   * @param id - 프로젝트 동기화 레코드 ID
+   * @returns 프로젝트 동기화 엔티티
+   * @throws ResourceNotFoundException 프로젝트가 존재하지 않는 경우
+   */
+  async getProject(id: string): Promise<ProjectSyncEntity> {
+    const entity = await this.projectSyncRepository.findOne({ where: { id } });
+    if (!entity) {
+      throw new ResourceNotFoundException('Project', id);
+    }
+    return entity;
   }
 
   /**

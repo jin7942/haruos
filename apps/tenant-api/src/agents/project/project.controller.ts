@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ProjectAgentService } from './project-agent.service';
 import { SyncProjectRequestDto } from './dto/sync-project.request.dto';
@@ -41,6 +41,21 @@ export class ProjectController {
   @ApiResponse({ status: 200, type: [ClickUpTaskResponseDto] })
   getTasks(@Query('listId') listId: string): Promise<ClickUpTaskResponseDto[]> {
     return this.projectAgentService.getTasks(listId);
+  }
+
+  /**
+   * 프로젝트 상세 정보를 조회한다.
+   *
+   * @param id - 프로젝트 동기화 레코드 ID
+   * @returns 프로젝트 동기화 상태
+   */
+  @Get(':id')
+  @ApiOperation({ summary: '프로젝트 상세 조회' })
+  @ApiResponse({ status: 200, type: ProjectSyncResponseDto })
+  @ApiResponse({ status: 404, description: '프로젝트를 찾을 수 없음' })
+  async getProject(@Param('id') id: string): Promise<ProjectSyncResponseDto> {
+    const entity = await this.projectAgentService.getProject(id);
+    return ProjectSyncResponseDto.from(entity);
   }
 
   /**

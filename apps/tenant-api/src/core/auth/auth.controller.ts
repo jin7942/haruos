@@ -1,4 +1,5 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RequestOtpRequestDto } from './dto/request-otp.request.dto';
@@ -55,12 +56,15 @@ export class AuthController {
   }
 
   /**
-   * 로그아웃.
+   * 로그아웃. 해당 사용자의 모든 Refresh Token을 무효화한다.
+   *
+   * @param req - JWT 인증된 요청 (user.sub에서 userId 추출)
    */
   @Post('logout')
   @ApiOperation({ summary: '로그아웃' })
   @ApiResponse({ status: 201 })
-  logout(): Promise<void> {
-    return this.authService.logout();
+  logout(@Req() req: Request): Promise<void> {
+    const userId = (req as any).user.sub;
+    return this.authService.logout(userId);
   }
 }

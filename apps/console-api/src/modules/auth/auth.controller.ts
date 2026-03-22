@@ -43,8 +43,10 @@ export class AuthController {
   @Post('refresh')
   @ApiOperation({ summary: '토큰 갱신' })
   @ApiResponse({ status: 201, type: TokenResponseDto })
-  refresh(@Body() dto: RefreshTokenRequestDto): Promise<TokenResponseDto> {
-    return this.authService.refreshAccessToken(dto.refreshToken);
+  refresh(@Body() dto: RefreshTokenRequestDto, @Req() req: Request): Promise<TokenResponseDto> {
+    const authHeader = req.headers.authorization;
+    const expiredAccessToken = authHeader?.replace('Bearer ', '') ?? null;
+    return this.authService.refreshAccessToken(dto.refreshToken, expiredAccessToken);
   }
 
   @Post('change-password')

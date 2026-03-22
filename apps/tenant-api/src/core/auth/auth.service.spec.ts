@@ -3,9 +3,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { TenantUserEntity } from './entities/tenant-user.entity';
 import { OtpEntity } from './entities/otp.entity';
+import { RefreshTokenEntity } from './entities/refresh-token.entity';
 import { OtpSenderPort } from './ports/otp-sender.port';
 import {
   ResourceNotFoundException,
@@ -17,6 +19,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let userRepo: jest.Mocked<Repository<TenantUserEntity>>;
   let otpRepo: jest.Mocked<Repository<OtpEntity>>;
+  let refreshTokenRepo: jest.Mocked<Repository<RefreshTokenEntity>>;
   let jwtService: jest.Mocked<JwtService>;
   let otpSender: jest.Mocked<OtpSenderPort>;
 
@@ -54,10 +57,20 @@ describe('AuthService', () => {
           },
         },
         {
+          provide: getRepositoryToken(RefreshTokenEntity),
+          useValue: {
+            find: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            update: jest.fn(),
+          },
+        },
+        {
           provide: JwtService,
           useValue: {
             sign: jest.fn().mockReturnValue('mock-jwt-token'),
             verify: jest.fn(),
+            decode: jest.fn(),
           },
         },
         {
@@ -78,6 +91,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     userRepo = module.get(getRepositoryToken(TenantUserEntity));
     otpRepo = module.get(getRepositoryToken(OtpEntity));
+    refreshTokenRepo = module.get(getRepositoryToken(RefreshTokenEntity));
     jwtService = module.get(JwtService);
     otpSender = module.get(OtpSenderPort);
   });
@@ -119,7 +133,7 @@ describe('AuthService', () => {
   });
 
   describe('verifyOtp', () => {
-    it('유효한 OTP로 로그인 토큰을 발급한다', async () => {
+    it('유효한 OTP로 로그인 토큰을 발급하고 refresh token을 DB에 저장한다', async () => {
       const mockOtp = {
         userId: mockUser.id,
         code: '123456',
@@ -133,6 +147,8 @@ describe('AuthService', () => {
       otpRepo.findOne.mockResolvedValue(mockOtp);
       userRepo.save.mockResolvedValue(mockUser as TenantUserEntity);
       otpRepo.save.mockResolvedValue(mockOtp);
+      refreshTokenRepo.create.mockReturnValue({} as RefreshTokenEntity);
+      refreshTokenRepo.save.mockResolvedValue({} as RefreshTokenEntity);
 
       const result = await service.verifyOtp('user@tenant.com', '123456');
 
@@ -140,6 +156,14 @@ describe('AuthService', () => {
       expect(result.refreshToken).toBeDefined();
       expect(result.user.email).toBe('user@tenant.com');
       expect(mockOtp.markUsed).toHaveBeenCalled();
+      expect(refreshTokenRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser.id,
+          tokenHash: expect.any(String),
+          expiresAt: expect.any(Date),
+        }),
+      );
+      expect(refreshTokenRepo.save).toHaveBeenCalled();
     });
 
     it('존재하지 않는 OTP이면 UnauthorizedException을 던진다', async () => {
@@ -172,32 +196,65 @@ describe('AuthService', () => {
 
   describe('refreshAccessToken', () => {
     it('유효한 refresh token으로 새 access token을 발급한다', async () => {
-      jwtService.verify.mockReturnValue({
-        sub: mockUser.id,
-        email: mockUser.email,
-        role: mockUser.role,
-      } as any);
+      const plainToken = 'valid-refresh-token';
+      const tokenHash = await bcrypt.hash(plainToken, 10);
+
+      const mockRefreshToken = {
+        id: 'token-id',
+        userId: mockUser.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        revokedAt: null,
+        createdAt: new Date(),
+      } as RefreshTokenEntity;
+
+      refreshTokenRepo.find.mockResolvedValue([mockRefreshToken]);
       userRepo.findOne.mockResolvedValue(mockUser as TenantUserEntity);
 
-      const result = await service.refreshAccessToken('valid-refresh-token');
+      const result = await service.refreshAccessToken(plainToken);
 
       expect(result.accessToken).toBe('mock-jwt-token');
     });
 
     it('유효하지 않은 refresh token이면 UnauthorizedException을 던진다', async () => {
-      jwtService.verify.mockImplementation(() => {
-        throw new Error('invalid');
-      });
+      refreshTokenRepo.find.mockResolvedValue([]);
 
       await expect(service.refreshAccessToken('invalid-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('만료된 refresh token이면 UnauthorizedException을 던진다', async () => {
+      const plainToken = 'expired-token';
+      const tokenHash = await bcrypt.hash(plainToken, 10);
+
+      const expiredRefreshToken = {
+        id: 'token-id',
+        userId: mockUser.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() - 1000),
+        revokedAt: null,
+        createdAt: new Date(),
+      } as RefreshTokenEntity;
+
+      refreshTokenRepo.find.mockResolvedValue([expiredRefreshToken]);
+
+      await expect(service.refreshAccessToken(plainToken)).rejects.toThrow(
         UnauthorizedException,
       );
     });
   });
 
   describe('logout', () => {
-    it('에러 없이 완료된다', async () => {
-      await expect(service.logout()).resolves.toBeUndefined();
+    it('해당 사용자의 모든 refresh token을 revoke한다', async () => {
+      refreshTokenRepo.update.mockResolvedValue({ affected: 2 } as any);
+
+      await service.logout(mockUser.id!);
+
+      expect(refreshTokenRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: mockUser.id }),
+        expect.objectContaining({ revokedAt: expect.any(Date) }),
+      );
     });
   });
 });

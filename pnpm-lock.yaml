@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@nestjs/schedule':
-        specifier: ^6.1.1
-        version: 6.1.1(@nestjs/common@11.1.17(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.17)
     devDependencies:
       '@types/multer':
         specifier: ^2.1.0
@@ -93,6 +89,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      socket.io:
+        specifier: ^4.8.3
+        version: 4.8.3
       stripe:
         specifier: ^20.4.1
         version: 20.4.1(@types/node@22.19.15)
@@ -305,6 +304,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      socket.io:
+        specifier: ^4.8.3
+        version: 4.8.3
       typeorm:
         specifier: ^0.3.20
         version: 0.3.28(better-sqlite3@12.8.0)(pg@8.20.0)(sql.js@1.14.1)(ts-node@10.9.2(@types/node@22.19.15)(typescript@5.9.3))
@@ -357,6 +359,9 @@ importers:
       '@haruos/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@haruos/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
       '@radix-ui/react-avatar':
         specifier: ^1.1.11
         version: 1.1.11(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

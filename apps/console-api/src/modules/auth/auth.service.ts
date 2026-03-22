@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -147,15 +147,32 @@ export class AuthService {
   }
 
   /**
-   * Access Token 갱신. Refresh Token의 bcrypt hash를 DB와 대조하여 검증.
+   * Access Token 갱신. 만료된 Access Token에서 userId를 decode하여
+   * 해당 유저의 토큰만 조회 → bcrypt compare. O(k) 성능 보장 (k = 유저별 토큰 수).
    *
    * @param refreshToken - 로그인 시 발급된 plain Refresh Token
+   * @param expiredAccessToken - 만료된 Access Token (userId 추출용, nullable)
    * @returns 새로 발급된 Access Token
    * @throws UnauthorizedException Refresh Token이 유효하지 않거나 만료된 경우
    */
-  async refreshAccessToken(refreshToken: string): Promise<TokenResponseDto> {
+  async refreshAccessToken(refreshToken: string, expiredAccessToken?: string | null): Promise<TokenResponseDto> {
+    let userId: string | null = null;
+
+    if (expiredAccessToken) {
+      try {
+        const decoded = this.jwtService.decode(expiredAccessToken) as { sub?: string } | null;
+        userId = decoded?.sub ?? null;
+      } catch {
+        // decode 실패 시 전체 조회로 fallback
+      }
+    }
+
+    const whereCondition = userId
+      ? { userId, revokedAt: IsNull() }
+      : { revokedAt: IsNull() };
+
     const tokens = await this.refreshTokenRepository.find({
-      where: { revokedAt: null as any },
+      where: whereCondition,
     });
 
     let matchedToken: RefreshTokenEntity | null = null;
