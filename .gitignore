@@ -39,3 +39,4 @@ coverage/
 
 # Flyway
 infra/flyway/**/flyway.conf
+.github/
