@@ -51,6 +51,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         <button
           type="submit"
           disabled={disabled || !message.trim()}
+          aria-label="메시지 전송"
           className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>

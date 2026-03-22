@@ -12,7 +12,7 @@ export function Header() {
         {user && (
           <span className="text-sm text-gray-600">{user.name}</span>
         )}
-        <Button variant="ghost" size="sm" onClick={logout}>
+        <Button variant="ghost" size="sm" onClick={logout} aria-label="로그아웃">
           로그아웃
         </Button>
       </div>

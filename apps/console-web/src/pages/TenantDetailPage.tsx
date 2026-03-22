@@ -7,25 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ProvisioningPanel } from '../components/provisioning/ProvisioningPanel';
 import { formatDate } from '@haruos/shared-utils';
-import type { BadgeVariant } from '../types/ui';
-
-function getStatusVariant(status: string): BadgeVariant {
-  switch (status) {
-    case 'ACTIVE': return 'success';
-    case 'CREATING': return 'info';
-    case 'SUSPENDED': return 'warning';
-    default: return 'default';
-  }
-}
-
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'ACTIVE': return '활성';
-    case 'CREATING': return '생성 중';
-    case 'SUSPENDED': return '중지됨';
-    default: return status;
-  }
-}
+import { getTenantStatusVariant, getTenantStatusLabel } from '../lib/tenant-status';
 
 type Tab = 'info' | 'provisioning' | 'monitoring' | 'settings';
 
@@ -87,8 +69,8 @@ export function TenantDetailPage() {
           &larr; 목록
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
-        <Badge variant={getStatusVariant(tenant.status)}>
-          {getStatusLabel(tenant.status)}
+        <Badge variant={getTenantStatusVariant(tenant.status)}>
+          {getTenantStatusLabel(tenant.status)}
         </Badge>
       </div>
 

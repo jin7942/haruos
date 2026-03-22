@@ -1,16 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { InvalidStateTransitionException } from '../../../common/exceptions/business.exception';
-
-/** 배치 작업 상태. */
-export type BatchJobStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED';
-
-/** 허용되는 상태 전이 맵. */
-const ALLOWED_TRANSITIONS: Record<BatchJobStatus, BatchJobStatus[]> = {
-  ACTIVE: ['PAUSED', 'COMPLETED'],
-  PAUSED: ['ACTIVE'],
-  COMPLETED: [],
-};
 
 /**
  * 배치 작업 엔티티.

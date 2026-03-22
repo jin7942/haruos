@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useKnowledgeSearch, useAskKnowledge } from '../hooks/useKnowledge';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
+import { Input } from '../components/ui/Input';
 import { Spinner } from '../components/ui/Spinner';
 import type { KnowledgeAskResponse } from '@haruos/shared-types';
 
@@ -34,12 +35,12 @@ export function KnowledgePage() {
 
       {/* 검색 폼 */}
       <form onSubmit={handleSearch} className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="문서에서 검색하거나 질문하세요..."
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1"
         />
         <Button type="submit" size="md" disabled={!searchQuery.trim()}>
           검색

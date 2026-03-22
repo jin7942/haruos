@@ -21,6 +21,24 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# SSM Parameter 읽기 권한 (ECS secrets 참조에 필요)
+resource "aws_iam_role_policy" "ecs_execution_ssm" {
+  name = "${local.name_prefix}-execution-ssm"
+  role = aws_iam_role.ecs_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameters",
+        "ssm:GetParameter"
+      ]
+      Resource = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/${local.name_prefix}/*"
+    }]
+  })
+}
+
 # ECS Task Role (앱이 사용하는 AWS 서비스 접근)
 resource "aws_iam_role" "ecs_task" {
   name = "${local.name_prefix}-ecs-task"

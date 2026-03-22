@@ -92,7 +92,7 @@ export function AdminTenantsPage() {
                   <td className="px-4 py-3 font-medium text-gray-900">{tenant.name}</td>
                   <td className="px-4 py-3 text-gray-500">{tenant.slug}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={STATUS_VARIANT[tenant.status] ?? 'outline'}>
+                    <Badge variant={STATUS_VARIANT[tenant.status] ?? 'default'}>
                       {tenant.status}
                     </Badge>
                   </td>

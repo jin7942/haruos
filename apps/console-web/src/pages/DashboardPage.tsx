@@ -4,29 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { formatDate } from '@haruos/shared-utils';
-import type { BadgeVariant } from '../types/ui';
-
-/** 테넌트 상태별 뱃지 variant 매핑. */
-function getStatusVariant(status: string): BadgeVariant {
-  switch (status) {
-    case 'ACTIVE': return 'success';
-    case 'CREATING': return 'info';
-    case 'SUSPENDED': return 'warning';
-    case 'DELETING': return 'danger';
-    default: return 'default';
-  }
-}
-
-/** 테넌트 상태 한글 라벨. */
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'ACTIVE': return '활성';
-    case 'CREATING': return '생성 중';
-    case 'SUSPENDED': return '중지됨';
-    case 'DELETING': return '삭제 중';
-    default: return status;
-  }
-}
+import { getTenantStatusVariant, getTenantStatusLabel } from '../lib/tenant-status';
 
 /** 대시보드 페이지. 테넌트 목록을 카드로 표시한다. */
 export function DashboardPage() {
@@ -72,8 +50,8 @@ export function DashboardPage() {
                     <h3 className="font-semibold text-gray-900">{tenant.name}</h3>
                     <p className="mt-1 text-sm text-gray-500">{tenant.slug}</p>
                   </div>
-                  <Badge variant={getStatusVariant(tenant.status)}>
-                    {getStatusLabel(tenant.status)}
+                  <Badge variant={getTenantStatusVariant(tenant.status)}>
+                    {getTenantStatusLabel(tenant.status)}
                   </Badge>
                 </div>
                 {tenant.description && (

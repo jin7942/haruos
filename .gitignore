@@ -24,6 +24,9 @@ build/
 *.tfstate
 *.tfstate.backup
 .terraform/
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
 
 # Logs
 *.log
@@ -39,4 +42,3 @@ coverage/
 
 # Flyway
 infra/flyway/**/flyway.conf
-.github/

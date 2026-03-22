@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { ValidationException } from '../../../common/exceptions/business.exception';
 
 /**
  * OTP 엔티티.
@@ -32,14 +33,14 @@ export class OtpEntity {
   /**
    * OTP를 사용 처리한다.
    *
-   * @throws Error 이미 사용되었거나 만료된 경우
+   * @throws ValidationException 이미 사용되었거나 만료된 경우
    */
   markUsed(): void {
     if (this.usedAt) {
-      throw new Error('OTP already used');
+      throw new ValidationException('OTP already used');
     }
     if (this.isExpired()) {
-      throw new Error('OTP expired');
+      throw new ValidationException('OTP expired');
     }
     this.usedAt = new Date();
   }
