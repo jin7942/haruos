@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ClickUpService } from './clickup.service';
-import { ClickUpPort } from './ports/clickup.port';
-import { ClickUpAdapter } from './adapters/clickup.adapter';
+import { ClickUpApiPort } from './ports/clickup-api.port';
+import { ClickUpApiAdapter } from './adapters/clickup-api.adapter';
 
 @Module({
   providers: [
     ClickUpService,
-    { provide: ClickUpPort, useClass: ClickUpAdapter },
+    { provide: ClickUpApiPort, useClass: ClickUpApiAdapter },
   ],
   exports: [ClickUpService],
 })
