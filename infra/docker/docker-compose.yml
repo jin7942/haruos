@@ -1,22 +1,21 @@
 # HaruOS Docker Compose - 프로덕션 빌드
 # 사용법: docker compose up --build
 # 개발용: docker compose -f docker-compose.dev.yml up
+# 환경변수: .env 파일에서 주입 (cp .env.example .env)
 
 services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: haruos
-      POSTGRES_PASSWORD: haruos
-      # 기본 DB는 postgres, 실제 DB는 init-db.sh로 생성
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CONSOLE_DB_NAME: ${CONSOLE_DB_NAME}
+      TENANT_DB_NAME: ${TENANT_DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh
-    # 프로덕션: postgres 포트를 호스트에 노출하지 않음
-    # ports:
-    #   - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U haruos"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,9 +27,9 @@ services:
     volumes:
       - ../flyway/console:/flyway/sql
     environment:
-      FLYWAY_URL: jdbc:postgresql://postgres:5432/haruos_console
-      FLYWAY_USER: haruos
-      FLYWAY_PASSWORD: haruos
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${CONSOLE_DB_NAME}
+      FLYWAY_USER: ${POSTGRES_USER}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,9 +40,9 @@ services:
     volumes:
       - ../flyway/tenant:/flyway/sql
     environment:
-      FLYWAY_URL: jdbc:postgresql://postgres:5432/haruos_tenant
-      FLYWAY_USER: haruos
-      FLYWAY_PASSWORD: haruos
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${TENANT_DB_NAME}
+      FLYWAY_USER: ${POSTGRES_USER}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,20 +52,21 @@ services:
       context: ../..
       dockerfile: infra/docker/console-api.Dockerfile
     environment:
-      NODE_ENV: development
-      PORT: 3000
+      NODE_ENV: production
+      PORT: ${CONSOLE_API_PORT}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: haruos
-      DB_PASSWORD: haruos
-      DB_DATABASE: haruos_console
-      JWT_SECRET: docker-dev-secret
-      JWT_ACCESS_EXPIRY: 15m
-      JWT_REFRESH_EXPIRY: 7d
-      CORS_ORIGIN: http://localhost:5173
-    # 프로덕션: nginx가 내부 프록시하므로 API 포트 호스트 노출 불필요
-    # ports:
-    #   - "3000:3000"
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_DATABASE: ${CONSOLE_DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_MONTHLY: ${STRIPE_PRICE_MONTHLY}
+      STRIPE_PRICE_YEARLY: ${STRIPE_PRICE_YEARLY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,20 +79,18 @@ services:
       context: ../..
       dockerfile: infra/docker/tenant-api.Dockerfile
     environment:
-      NODE_ENV: development
-      PORT: 3001
+      NODE_ENV: production
+      PORT: ${TENANT_API_PORT}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: haruos
-      DB_PASSWORD: haruos
-      DB_DATABASE: haruos_tenant
-      JWT_SECRET: docker-dev-secret
-      JWT_ACCESS_EXPIRY: 15m
-      JWT_REFRESH_EXPIRY: 7d
-      AWS_REGION: ap-northeast-2
-    # 프로덕션: nginx가 내부 프록시하므로 API 포트 호스트 노출 불필요
-    # ports:
-    #   - "3001:3001"
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_DATABASE: ${TENANT_DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY}
+      AWS_REGION: ${AWS_REGION}
+      CLICKUP_WEBHOOK_SECRET: ${CLICKUP_WEBHOOK_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,7 +103,7 @@ services:
       context: ../..
       dockerfile: infra/docker/console-web.Dockerfile
     ports:
-      - "5173:80"
+      - "${CONSOLE_WEB_PORT}:80"
     depends_on:
       - console-api
     restart: unless-stopped
@@ -115,7 +113,7 @@ services:
       context: ../..
       dockerfile: infra/docker/tenant-web.Dockerfile
     ports:
-      - "5174:80"
+      - "${TENANT_WEB_PORT}:80"
     depends_on:
       - tenant-api
     restart: unless-stopped
