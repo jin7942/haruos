@@ -5,12 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from '../src/common/guards/jwt-auth.guard';
-import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
-import { ApiResponseInterceptor } from '../src/common/interceptors/api-response.interceptor';
-import { FileModule } from '../src/agents/file/file.module';
-import { StoragePort } from '../src/core/storage/ports/storage.port';
-import { File } from '../src/agents/file/entities/file.entity';
+import { JwtAuthGuard } from '../../../apps/tenant-api/src/common/guards/jwt-auth.guard';
+import { GlobalExceptionFilter } from '../../../apps/tenant-api/src/common/filters/global-exception.filter';
+import { ApiResponseInterceptor } from '../../../apps/tenant-api/src/common/interceptors/api-response.interceptor';
+import { FileModule } from '../../../apps/tenant-api/src/agents/file/file.module';
+import { StoragePort } from '../../../apps/tenant-api/src/core/storage/ports/storage.port';
+import { File } from '../../../apps/tenant-api/src/agents/file/entities/file.entity';
 import { getTestDbConfig } from './test-db.config';
 
 const JWT_SECRET = 'e2e-test-secret';
@@ -51,9 +51,7 @@ describe('File Agent (e2e)', () => {
         JwtModule.register({ global: true, secret: JWT_SECRET, signOptions: { expiresIn: '15m' } }),
         FileModule,
       ],
-      providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-      ],
+      providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     })
       .overrideProvider(StoragePort)
       .useClass(MockStorageAdapter)
@@ -62,11 +60,17 @@ describe('File Agent (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalInterceptors(new ApiResponseInterceptor());
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     const jwtService = moduleFixture.get(JwtService);
-    accessToken = jwtService.sign({ sub: TEST_USER_ID, email: 'file@example.com', tenantId: 'tenant-001' });
+    accessToken = jwtService.sign({
+      sub: TEST_USER_ID,
+      email: 'file@example.com',
+      tenantId: 'tenant-001',
+    });
   }, 15000);
 
   afterAll(async () => {

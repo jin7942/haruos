@@ -5,14 +5,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from '../src/common/guards/jwt-auth.guard';
-import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
-import { ApiResponseInterceptor } from '../src/common/interceptors/api-response.interceptor';
-import { ScheduleModule } from '../src/agents/schedule/schedule.module';
-import { ClickUpApiPort } from '../src/core/clickup/ports/clickup-api.port';
-import { ClickUpTaskResponseDto } from '../src/core/clickup/dto/clickup-task.response.dto';
-import { CreateClickUpTaskRequestDto } from '../src/core/clickup/dto/create-clickup-task.request.dto';
-import { Schedule } from '../src/agents/schedule/entities/schedule.entity';
+import { JwtAuthGuard } from '../../../apps/tenant-api/src/common/guards/jwt-auth.guard';
+import { GlobalExceptionFilter } from '../../../apps/tenant-api/src/common/filters/global-exception.filter';
+import { ApiResponseInterceptor } from '../../../apps/tenant-api/src/common/interceptors/api-response.interceptor';
+import { ScheduleModule } from '../../../apps/tenant-api/src/agents/schedule/schedule.module';
+import { ClickUpApiPort } from '../../../apps/tenant-api/src/core/clickup/ports/clickup-api.port';
+import { ClickUpTaskResponseDto } from '../../../apps/tenant-api/src/core/clickup/dto/clickup-task.response.dto';
+import { CreateClickUpTaskRequestDto } from '../../../apps/tenant-api/src/core/clickup/dto/create-clickup-task.request.dto';
+import { Schedule } from '../../../apps/tenant-api/src/agents/schedule/entities/schedule.entity';
 import { getTestDbConfig } from './test-db.config';
 
 const JWT_SECRET = 'e2e-test-secret';
@@ -33,7 +33,10 @@ class MockClickUpApi extends ClickUpApiPort {
     return task;
   }
 
-  async updateTask(taskId: string, data: Partial<CreateClickUpTaskRequestDto>): Promise<ClickUpTaskResponseDto> {
+  async updateTask(
+    taskId: string,
+    data: Partial<CreateClickUpTaskRequestDto>,
+  ): Promise<ClickUpTaskResponseDto> {
     const task = new ClickUpTaskResponseDto();
     task.id = taskId;
     task.name = data.name ?? 'Updated';
@@ -63,9 +66,7 @@ describe('Schedule Agent (e2e)', () => {
         JwtModule.register({ global: true, secret: JWT_SECRET, signOptions: { expiresIn: '15m' } }),
         ScheduleModule,
       ],
-      providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-      ],
+      providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     })
       .overrideProvider(ClickUpApiPort)
       .useClass(MockClickUpApi)
@@ -74,11 +75,17 @@ describe('Schedule Agent (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalInterceptors(new ApiResponseInterceptor());
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     const jwtService = moduleFixture.get(JwtService);
-    accessToken = jwtService.sign({ sub: TEST_USER_ID, email: 'schedule@example.com', tenantId: 'tenant-001' });
+    accessToken = jwtService.sign({
+      sub: TEST_USER_ID,
+      email: 'schedule@example.com',
+      tenantId: 'tenant-001',
+    });
   }, 15000);
 
   afterAll(async () => {
@@ -203,7 +210,11 @@ describe('Schedule Agent (e2e)', () => {
       const createRes = await request(app.getHttpServer())
         .post('/agents/schedules')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ title: '통합 테스트 일정', startAt: '2026-04-05T09:00:00Z', endAt: '2026-04-05T10:00:00Z' })
+        .send({
+          title: '통합 테스트 일정',
+          startAt: '2026-04-05T09:00:00Z',
+          endAt: '2026-04-05T10:00:00Z',
+        })
         .expect(201);
 
       const scheduleId = createRes.body.data.id;

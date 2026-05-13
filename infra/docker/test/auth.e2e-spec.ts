@@ -5,13 +5,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from '../src/common/guards/jwt-auth.guard';
-import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
-import { ApiResponseInterceptor } from '../src/common/interceptors/api-response.interceptor';
-import { AuthModule } from '../src/core/auth/auth.module';
-import { OtpSenderPort } from '../src/core/auth/ports/otp-sender.port';
-import { TenantUserEntity } from '../src/core/auth/entities/tenant-user.entity';
-import { OtpEntity } from '../src/core/auth/entities/otp.entity';
+import { JwtAuthGuard } from '../../../apps/tenant-api/src/common/guards/jwt-auth.guard';
+import { GlobalExceptionFilter } from '../../../apps/tenant-api/src/common/filters/global-exception.filter';
+import { ApiResponseInterceptor } from '../../../apps/tenant-api/src/common/interceptors/api-response.interceptor';
+import { AuthModule } from '../../../apps/tenant-api/src/core/auth/auth.module';
+import { OtpSenderPort } from '../../../apps/tenant-api/src/core/auth/ports/otp-sender.port';
+import { TenantUserEntity } from '../../../apps/tenant-api/src/core/auth/entities/tenant-user.entity';
+import { OtpEntity } from '../../../apps/tenant-api/src/core/auth/entities/otp.entity';
 import { getTestDbConfig } from './test-db.config';
 
 /** OTP 발송을 가로채는 mock 어댑터. 발송된 코드를 기록한다. */
@@ -47,9 +47,7 @@ describe('Auth (e2e)', () => {
         JwtModule.register({ global: true, secret: JWT_SECRET, signOptions: { expiresIn: '15m' } }),
         AuthModule,
       ],
-      providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-      ],
+      providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     })
       .overrideProvider(OtpSenderPort)
       .useValue(mockOtpSender)
@@ -58,7 +56,9 @@ describe('Auth (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalInterceptors(new ApiResponseInterceptor());
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     // 테스트 사용자 시드
@@ -141,9 +141,7 @@ describe('Auth (e2e)', () => {
 
   describe('POST /auth/logout', () => {
     it('인증된 사용자의 로그아웃 성공', async () => {
-      await request(app.getHttpServer())
-        .post('/auth/otp/request')
-        .send({ email: TEST_EMAIL });
+      await request(app.getHttpServer()).post('/auth/otp/request').send({ email: TEST_EMAIL });
 
       const code = mockOtpSender.lastCode!;
       const loginRes = await request(app.getHttpServer())
@@ -159,9 +157,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('토큰 없이 로그아웃 시 401', async () => {
-      await request(app.getHttpServer())
-        .post('/auth/logout')
-        .expect(401);
+      await request(app.getHttpServer()).post('/auth/logout').expect(401);
     });
   });
 

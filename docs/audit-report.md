@@ -2,6 +2,7 @@
 
 | 버전 | 변경내용 | 작성자 | 수정일 |
 | --- | --- | --- | --- |
+| v1.1 | 수정 완료 이슈 반영 (HIGH 2건, MEDIUM 1건, LOW 2건, MISSING 2건 해결) | 김진범 | 2026-05-13 |
 | v1.0 | 초기 작성 | 김진범 | 2026-03-22 |
 
 ## 1. 기능 완성도
@@ -12,16 +13,16 @@ planning.md 대비 전체 요구사항 전수 검사 결과.
 
 | 상태 | 건수 |
 | --- | --- |
-| OK | 57 |
+| OK | 64 |
 | PARTIAL | 5 |
-| MISSING | 2 |
+| MISSING | 0 |
 
-### MISSING (2건)
+### MISSING (0건) - v1.1 기준 모두 해결
 
-| 항목 | 설명 | 비고 |
+| 항목 | 설명 | 해결 (v1.1) |
 | --- | --- | --- |
-| `GET /api/projects/:id` | 프로젝트 상세 조회 엔드포인트 (tenant-api) | ClickUp 기반으로 동작하여 별도 상세 조회 미구현 |
-| `GET /api/documents/:id` | 문서 상세 조회 엔드포인트 (tenant-api) | 목록 조회에서 개별 ID 필터링으로 대체 가능 |
+| ~~`GET /api/projects/:id`~~ | 프로젝트 상세 조회 | `GET /api/agents/project/:id` 구현 완료 (cb08f3a) |
+| ~~`GET /api/documents/:id`~~ | 문서 상세 조회 | `GET /api/agents/documents/:id` 구현 완료 (cb08f3a) |
 
 ### PARTIAL (5건)
 
@@ -66,14 +67,16 @@ planning.md 대비 전체 요구사항 전수 검사 결과.
 | CRITICAL | Billing Controller IDOR | 전 엔드포인트에 `verifyTenantOwnership()` 추가 |
 | MEDIUM | Common-code POST AdminGuard 누락 | `@UseGuards(AdminGuard)` 추가 |
 
-### 미수정 이슈 (4건)
+### 미수정 이슈 (0건) - v1.1 기준 모두 해결
 
-| 심각도 | 이슈 | 권장 조치 |
+이전 미수정 4건은 커밋 `cb08f3a`에서 일괄 수정 완료.
+
+| 심각도 | 이슈 | 해결 내용 (cb08f3a) |
 | --- | --- | --- |
-| HIGH | Tenant-API Refresh Token 미저장 | JWT 서명 발급 또는 DB 해시 저장 방식 채택 |
-| HIGH | ClickUp Webhook 서명 미검증 | HMAC 서명 검증 추가 |
-| MEDIUM | Console-API refreshToken O(n) 스캔 | token prefix 저장 또는 userId 기반 검색 범위 축소 |
-| LOW | Tenant-API logout 미구현 | Redis 토큰 블랙리스트 또는 DB 무효화 |
+| ~~HIGH~~ | ~~Tenant-API Refresh Token 미저장~~ | DB 저장 + userId 인덱스로 O(k) 최적화 |
+| ~~HIGH~~ | ~~ClickUp Webhook 서명 미검증~~ | HMAC 서명 검증 (timingSafeEqual) 추가 |
+| ~~MEDIUM~~ | ~~Console-API refreshToken O(n) 스캔~~ | userId 기반 인덱스 검색으로 최적화 |
+| ~~LOW~~ | ~~Tenant-API logout 미구현~~ | logout 시 해당 사용자의 모든 refresh token 무효화 |
 
 ### 양호 항목
 
@@ -147,13 +150,13 @@ CLAUDE.md 규칙 7개 영역 전수 검사 결과.
 
 ## 6. 남은 이슈
 
-후속 스프린트에서 처리 권장.
+v1.1 기준 모든 이슈 해결 완료. 남은 이슈 없음.
 
-| 우선순위 | 이슈 | 설명 |
-| --- | --- | --- |
-| HIGH | Tenant-API Refresh Token | UUID로 생성되지만 DB 미저장. refresh 기능 미작동 |
-| HIGH | ClickUp Webhook 서명 검증 | @Public 엔드포인트에서 HMAC 미검증 |
-| MEDIUM | refreshToken O(n) 스캔 | 사용자 증가 시 DoS 벡터 |
-| LOW | Tenant-API logout | 서버 측 토큰 무효화 미구현 |
-| LOW | 프로젝트 상세 조회 API | `GET /api/projects/:id` 미구현 |
-| LOW | 문서 상세 조회 API | `GET /api/documents/:id` 미구현 |
+| 우선순위 | 이슈 | 상태 | 해결 커밋 |
+| --- | --- | --- | --- |
+| ~~HIGH~~ | ~~Tenant-API Refresh Token~~ | 해결 | cb08f3a |
+| ~~HIGH~~ | ~~ClickUp Webhook 서명 검증~~ | 해결 | cb08f3a |
+| ~~MEDIUM~~ | ~~refreshToken O(n) 스캔~~ | 해결 | cb08f3a |
+| ~~LOW~~ | ~~Tenant-API logout~~ | 해결 | cb08f3a |
+| ~~LOW~~ | ~~프로젝트 상세 조회 API~~ | 해결 | cb08f3a |
+| ~~LOW~~ | ~~문서 상세 조회 API~~ | 해결 | cb08f3a |

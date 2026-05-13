@@ -5,14 +5,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from '../src/common/guards/jwt-auth.guard';
-import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
-import { ApiResponseInterceptor } from '../src/common/interceptors/api-response.interceptor';
-import { DocumentModule } from '../src/agents/document/document.module';
-import { AiModelPort } from '../src/core/ai-gateway/ports/ai-model.port';
-import { AiChatResponseDto, IntentResultDto } from '../src/core/ai-gateway/dto/ai-chat.response.dto';
-import { ChatMessageDto } from '../src/core/ai-gateway/dto/ai-chat.request.dto';
-import { Document } from '../src/agents/document/entities/document.entity';
+import { JwtAuthGuard } from '../../../apps/tenant-api/src/common/guards/jwt-auth.guard';
+import { GlobalExceptionFilter } from '../../../apps/tenant-api/src/common/filters/global-exception.filter';
+import { ApiResponseInterceptor } from '../../../apps/tenant-api/src/common/interceptors/api-response.interceptor';
+import { DocumentModule } from '../../../apps/tenant-api/src/agents/document/document.module';
+import { AiModelPort } from '../../../apps/tenant-api/src/core/ai-gateway/ports/ai-model.port';
+import {
+  AiChatResponseDto,
+  IntentResultDto,
+} from '../../../apps/tenant-api/src/core/ai-gateway/dto/ai-chat.response.dto';
+import { ChatMessageDto } from '../../../apps/tenant-api/src/core/ai-gateway/dto/ai-chat.request.dto';
+import { Document } from '../../../apps/tenant-api/src/agents/document/entities/document.entity';
 import { getTestDbConfig } from './test-db.config';
 
 const JWT_SECRET = 'e2e-test-secret';
@@ -23,7 +26,9 @@ class MockAiModel extends AiModelPort {
   async chat(messages: ChatMessageDto[]): Promise<AiChatResponseDto> {
     return AiChatResponseDto.from(
       '- Action Item 1\n- Action Item 2\n- Action Item 3',
-      'mock-model', 10, 20,
+      'mock-model',
+      10,
+      20,
     );
   }
 
@@ -52,9 +57,7 @@ describe('Document Agent (e2e)', () => {
         JwtModule.register({ global: true, secret: JWT_SECRET, signOptions: { expiresIn: '15m' } }),
         DocumentModule,
       ],
-      providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-      ],
+      providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     })
       .overrideProvider(AiModelPort)
       .useClass(MockAiModel)
@@ -63,11 +66,17 @@ describe('Document Agent (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalInterceptors(new ApiResponseInterceptor());
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     const jwtService = moduleFixture.get(JwtService);
-    accessToken = jwtService.sign({ sub: TEST_USER_ID, email: 'doc@example.com', tenantId: 'tenant-001' });
+    accessToken = jwtService.sign({
+      sub: TEST_USER_ID,
+      email: 'doc@example.com',
+      tenantId: 'tenant-001',
+    });
   }, 15000);
 
   afterAll(async () => {
@@ -163,7 +172,11 @@ describe('Document Agent (e2e)', () => {
       const createRes = await request(app.getHttpServer())
         .post('/agents/documents')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ title: '요약 테스트', content: '요약할 내용이 있는 문서입니다.', type: 'MEETING_NOTE' })
+        .send({
+          title: '요약 테스트',
+          content: '요약할 내용이 있는 문서입니다.',
+          type: 'MEETING_NOTE',
+        })
         .expect(201);
 
       const docId = createRes.body.data.id;
@@ -198,7 +211,11 @@ describe('Document Agent (e2e)', () => {
       const createRes = await request(app.getHttpServer())
         .post('/agents/documents')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ title: 'AI 추출 테스트', content: '회의 결과 여러 항목이 정해졌습니다.', type: 'MEETING_NOTE' })
+        .send({
+          title: 'AI 추출 테스트',
+          content: '회의 결과 여러 항목이 정해졌습니다.',
+          type: 'MEETING_NOTE',
+        })
         .expect(201);
 
       const docId = createRes.body.data.id;
@@ -219,7 +236,11 @@ describe('Document Agent (e2e)', () => {
       const createRes = await request(app.getHttpServer())
         .post('/agents/documents')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ title: '통합 테스트 문서', content: '통합 테스트용 문서 내용입니다.', type: 'MEETING_NOTE' })
+        .send({
+          title: '통합 테스트 문서',
+          content: '통합 테스트용 문서 내용입니다.',
+          type: 'MEETING_NOTE',
+        })
         .expect(201);
 
       const docId = createRes.body.data.id;

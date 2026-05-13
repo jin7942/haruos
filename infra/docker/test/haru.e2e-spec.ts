@@ -5,16 +5,19 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from '../src/common/guards/jwt-auth.guard';
-import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
-import { ApiResponseInterceptor } from '../src/common/interceptors/api-response.interceptor';
-import { HaruModule } from '../src/haru/haru.module';
-import { AiModelPort } from '../src/core/ai-gateway/ports/ai-model.port';
-import { AiChatResponseDto, IntentResultDto } from '../src/core/ai-gateway/dto/ai-chat.response.dto';
-import { ChatMessageDto } from '../src/core/ai-gateway/dto/ai-chat.request.dto';
-import { Conversation } from '../src/haru/context/entities/conversation.entity';
-import { Message } from '../src/haru/context/entities/message.entity';
-import { BatchJob } from '../src/haru/batch/entities/batch-job.entity';
+import { JwtAuthGuard } from '../../../apps/tenant-api/src/common/guards/jwt-auth.guard';
+import { GlobalExceptionFilter } from '../../../apps/tenant-api/src/common/filters/global-exception.filter';
+import { ApiResponseInterceptor } from '../../../apps/tenant-api/src/common/interceptors/api-response.interceptor';
+import { HaruModule } from '../../../apps/tenant-api/src/haru/haru.module';
+import { AiModelPort } from '../../../apps/tenant-api/src/core/ai-gateway/ports/ai-model.port';
+import {
+  AiChatResponseDto,
+  IntentResultDto,
+} from '../../../apps/tenant-api/src/core/ai-gateway/dto/ai-chat.response.dto';
+import { ChatMessageDto } from '../../../apps/tenant-api/src/core/ai-gateway/dto/ai-chat.request.dto';
+import { Conversation } from '../../../apps/tenant-api/src/haru/context/entities/conversation.entity';
+import { Message } from '../../../apps/tenant-api/src/haru/context/entities/message.entity';
+import { BatchJob } from '../../../apps/tenant-api/src/haru/batch/entities/batch-job.entity';
 import { getTestDbConfig } from './test-db.config';
 
 const JWT_SECRET = 'e2e-test-secret';
@@ -52,9 +55,7 @@ describe('Haru (e2e)', () => {
         JwtModule.register({ global: true, secret: JWT_SECRET, signOptions: { expiresIn: '15m' } }),
         HaruModule,
       ],
-      providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-      ],
+      providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     })
       .overrideProvider(AiModelPort)
       .useClass(MockAiModel)
@@ -63,11 +64,17 @@ describe('Haru (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalInterceptors(new ApiResponseInterceptor());
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     jwtService = moduleFixture.get(JwtService);
-    accessToken = jwtService.sign({ sub: TEST_USER_ID, email: 'test@example.com', tenantId: 'tenant-001' });
+    accessToken = jwtService.sign({
+      sub: TEST_USER_ID,
+      email: 'test@example.com',
+      tenantId: 'tenant-001',
+    });
   });
 
   afterAll(async () => {
@@ -107,10 +114,7 @@ describe('Haru (e2e)', () => {
     });
 
     it('인증 없이 요청 시 401', async () => {
-      await request(app.getHttpServer())
-        .post('/haru/chat')
-        .send({ message: '테스트' })
-        .expect(401);
+      await request(app.getHttpServer()).post('/haru/chat').send({ message: '테스트' }).expect(401);
     });
   });
 
