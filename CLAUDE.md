@@ -222,12 +222,121 @@ codes
 
 ---
 
-## 버전 관리
+## [REQUIRED] 브랜치/버전/커밋 규칙 (사내 표준)
 
-- Semantic Versioning: `MAJOR.MINOR.PATCH`
-- 개발 단계: `0.x.x`
-- 정식 릴리스: `1.0.0`
-- 커밋: `<type>: <subject>` (feat, fix, refactor, docs, test, chore)
+> 원본: [`docs/design/사내 브랜치 컨벤션.md`](docs/design/사내%20브랜치%20컨벤션.md)
+> 본 섹션은 사내 표준이며, 본 프로젝트는 GitHub PR을 사용한다(컨벤션 문서의 "MR" = "PR").
+
+### 토폴로지 (단일 main 모델)
+
+```
+main ← vX.Y.Z (릴리스 통합, short-lived) ← feat-*, fix-* 등 (작업 단위)
+hotfix/vX.Y.Z → main 직접 머지 (긴급 패치 예외)
+```
+
+- **단일 main 모델**: `production`/`develop`/`staging` 등 환경별 장수 브랜치 신설 금지
+- 태그(`vX.Y.Z`)는 **코드 버전 식별자**. 브랜치는 *작업 흐름*만 표현
+- `feat-*` 는 `main` 직접 PR 금지. 반드시 `vX.Y.Z` 경유
+- `hotfix/vX.Y.Z` 만 `main` 직접 분기·머지 허용
+
+### 브랜치 명명
+
+| 종류 | 형식 | 예 |
+| --- | --- | --- |
+| 릴리스 통합 | `vX.Y.Z` | `v0.21.0` |
+| 작업 | `<type>-<kebab-case>` | `feat-topology-layout`, `fix-snmp-timeout` |
+| 핫픽스 | `hotfix/vX.Y.Z` | `hotfix/v0.20.7` |
+
+Type: `feat`, `fix`, `refactor`, `perf`, `docs`, `chore`, `test`, `style`, `ci`
+
+규칙:
+- 작업 브랜치는 **하이픈** (`feat-foo`), slash 금지 (`feature/foo` 금지)
+- 작업 브랜치명에 버전 prefix 금지 (이미 `vX.Y.Z` 안에 있음)
+- 릴리스/핫픽스만 슬래시 (`hotfix/vX.Y.Z`)
+
+### 버전 (SemVer)
+
+| Bump | 언제 | 예 |
+| --- | --- | --- |
+| MAJOR | API 깨짐, 아키텍처 변경, 호환 안 됨 | v1.2.3 → v2.0.0 |
+| MINOR | 기능 추가, 호환 유지 | v1.2.3 → v1.3.0 |
+| PATCH | 버그 수정, 호환 유지 | v1.2.3 → v1.2.4 |
+
+- 태그 형식: `vX.Y.Z` (소문자 v), 정규식 `^v\d+\.\d+\.\d+$`
+- 태그 부여 전 모든 버전 파일 동기화 (`package.json` 등)
+- v1.0.0 도달 전(`0.x.y`)은 MINOR도 호환 깰 수 있음 (SemVer 표준)
+- 태그 재사용 금지 (한 번 부여한 `vX.Y.Z`는 영구)
+
+### 커밋 (Conventional Commits)
+
+형식:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+- type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `style`, `ci`, `release`
+- subject: 50자 이내, 명령형, 마침표 없음
+- body: 72자/줄, *왜* 변경했는지 중심
+- breaking change: footer에 `BREAKING CHANGE: ...` 명시 → MAJOR bump 필수
+
+예:
+
+```
+feat(web): WebSocket wss 자동 매핑 추가
+
+HTTPS 페이지에서 Mixed Content 차단되던 문제 해소.
+```
+
+### 워크플로
+
+- **일반**: `main`에서 `vX.Y.Z` 생성 → `vX.Y.Z`에서 `feat-*` 분기 → PR(target: `vX.Y.Z`) → 머지 → 다른 기능 반복 → 릴리스 시 버전 동기화 + CHANGELOG + `vX.Y.Z` → `main` PR → 머지 후 태그 부여
+- **핫픽스**: `main`에서 `hotfix/vX.Y.Z` 분기 → 수정 + PATCH bump → PR(target: `main`) → 머지 후 태그 부여
+- **릴리스 커밋 메시지**: `release: vX.Y.Z`
+
+### PR 룰
+
+| 종류 | source → target | 머지 방식 |
+| --- | --- | --- |
+| 작업 | `feat-*` → `vX.Y.Z` | merge commit (squash 선택 가능) |
+| 릴리스 | `vX.Y.Z` → `main` | **merge commit, squash 금지** |
+| 핫픽스 | `hotfix/vX.Y.Z` → `main` | **merge commit, squash 금지** |
+
+릴리스/핫픽스 squash 금지 이유: 어떤 작업이 어느 릴리스에 들어갔는지 히스토리 추적.
+
+### 브랜치 삭제 정책
+
+- 머지된 작업 브랜치(`feat-*`, `fix-*`, …) → **즉시 삭제**
+- 머지된 핫픽스 브랜치 → **즉시 삭제**
+- `vX.Y.Z` 릴리스 브랜치 → **`main` 머지 + 태그 후 삭제**
+- GitHub PR "Automatically delete head branches" 기본 활성화 권장
+- 로컬 브랜치 정리는 개발자 자율 (강제 X)
+
+### 금지
+
+- `main`에 직접 push (hotfix 머지 제외)
+- `feat-*`를 `main`으로 직접 PR
+- 핫픽스 외에 `main` 직접 분기
+- 릴리스/핫픽스 PR squash 머지
+- force-push to `main` 또는 `vX.Y.Z`
+- 태그 재사용 (한 번 부여한 `vX.Y.Z`는 영구)
+- `production`/`develop`/`staging` 등 환경별 장수 브랜치 신설
+- 머지 완료된 브랜치 방치
+- 작업 브랜치명에 slash 사용 (`feature/foo` 금지 → `feat-foo`)
+
+### 빠른 결정
+
+| 작업 | 브랜치 |
+| --- | --- |
+| 새 기능 (다음 릴리스 없음) | `main`에서 `vX.Y.Z` 생성 → `feat-*` 분기 |
+| 새 기능 (다음 릴리스 진행 중) | `vX.Y.Z`에서 `feat-*` 분기 |
+| 일반 버그 | `vX.Y.Z`에서 `fix-*` 분기 |
+| 운영 긴급 버그 | `main`에서 `hotfix/vX.Y.Z` 분기 |
+| 리팩토링 | `vX.Y.Z`에서 `refactor-*` 분기 |
 
 ---
 
@@ -244,52 +353,48 @@ codes
 
 ---
 
-## ADR (Architecture Decision Record)
+## ADR / RFC (의사결정 기록)
 
-프로젝트의 모든 주요 의사결정은 `ADR/` 폴더에 기록한다.
+프로젝트의 모든 주요 의사결정은 [`docs/decisions/`](docs/decisions/) 폴더에 기록한다.
 
-### 작성 기준
+| 폴더 | 용도 | 변경 가능성 |
+| --- | --- | --- |
+| [`docs/decisions/ADR/`](docs/decisions/ADR/) | **확정된** 의사결정 (Architecture Decision Record) | 확정 후 수정 X. 변경 시 새 ADR 작성 후 기존을 `대체됨`으로 변경 |
+| [`docs/decisions/RFC/`](docs/decisions/RFC/) | **논의 중**인 제안 (Request For Comments) | 자유롭게 수정. 합의 시 ADR로 승격 |
 
-다음 중 하나에 해당하면 ADR을 작성한다:
+### 워크플로우
+
+```
+RFC (제안/논의) ── 팀 합의 ──> ADR (확정 기록) ──> 코드/문서 반영
+       │
+       └── 합의 안 됨 ──> 폐기 / 보류
+```
+
+새 아이디어·제안은 **RFC로 시작**. 합의 후 새 ADR 작성. RFC는 히스토리로 보존.
+
+### ADR 작성 기준 (합의된 결정만)
 
 - 기술/라이브러리 선정 또는 변경
 - 아키텍처, 프로토콜, 인터페이스 방식 결정
 - 기획 요구사항 해석에 따른 설계 방향 결정
 - 기존 결정을 번복하는 경우
 
+### RFC 작성 기준 (합의 전 단계)
+
+- 위 ADR 작성 기준에 해당하나 아직 합의가 없는 경우
+- 사업/제품 방향성 검토
+- 큰 리팩토링 또는 마이그레이션 제안
+- 외부에 영향을 주는 인터페이스 변경 검토
+
 ### 파일 규칙
 
-- 경로: `ADR/ADR-NNN-제목.md`
-- 번호: 순차 부여 (001, 002, ...)
-- 상태: `제안` → `확정` → `대체됨` / `폐기`
-- 확정된 ADR은 수정하지 않는다. 변경 시 새 ADR을 작성하고 기존 ADR 상태를 `대체됨`으로 변경.
-- 새 ADR 작성 시 `ADR/README.md` 목록에 추가.
-
-### 템플릿
-
-```markdown
-# ADR-NNN: 제목
-
-- **상태**: 제안 / 확정 / 대체됨 / 폐기
-- **일자**: YYYY-MM-DD
-- **결정자**: 이름
-
-## 배경
-왜 이 결정이 필요한지
-
-## 검토 선택지
-1. **선택지 A** → 장단점
-2. **선택지 B** → 장단점
-
-## 결정
-최종 선택
-
-## 근거
-왜 이것을 선택했는지
-
-## 영향
-이 결정으로 인해 변경되거나 추가 확인이 필요한 사항
-```
+| 항목 | ADR | RFC |
+| --- | --- | --- |
+| 경로 | `docs/decisions/ADR/ADR-NNN-제목.md` | `docs/decisions/RFC/RFC-NNN-제목.md` |
+| 번호 | 순차 부여 (001, 002, ...) | 순차 부여 (001, 002, ...) |
+| 상태 | `제안` → `확정` → `대체됨` / `폐기` | `제안` → `논의 중` → `합의` → `확정으로 승격` / `폐기` / `보류` |
+| 인덱스 | `docs/decisions/ADR/README.md`에 추가 | `docs/decisions/RFC/README.md`에 추가 |
+| 템플릿 | [`docs/decisions/ADR/TEMPLATE.md`](docs/decisions/ADR/TEMPLATE.md) | [`docs/decisions/RFC/TEMPLATE.md`](docs/decisions/RFC/TEMPLATE.md) |
 
 ---
 
@@ -316,6 +421,9 @@ codes
 docs/
 ├── planning.md                 # 기획안 (참고용)
 ├── 애착개발패턴.md              # 개발 패턴/원칙 참조
+├── decisions/                  # 의사결정 (ADR + RFC)
+│   ├── ADR/                    # 확정된 결정
+│   └── RFC/                    # 논의 중인 제안
 ├── design/                     # 설계 문서
 │   ├── architecture/
 │   ├── data-model/
