@@ -3,6 +3,22 @@
 이 프로젝트의 모든 주요 변경 사항을 기록한다.
 형식은 [Keep a Changelog](https://keepachangelog.com/), 버전은 [SemVer](https://semver.org/)를 따른다.
 
+## [0.4.0] - 2026-05-31
+
+### Changed
+- 환경변수를 루트 단일 `.env`(SSOT)로 통합. 주입 지점 산재 제거.
+  - 로컬: `dotenv-cli`로 루트 `.env` 주입 (`dev:*-api`)
+  - Docker: compose `--env-file .env`(루트) 보간/주입
+  - Vite: `loadEnv`로 전환, `process.env` 직접참조 제거
+  - NestJS `ConfigModule` envFilePath를 루트로 (fallback)
+- ADR-003 (환경변수 SSOT) 추가.
+
+### Removed
+- 죽은 env 파일: `apps/*/.env.example`, `infra/docker/.env.example`.
+
+### Added
+- `dotenv-cli` (devDependency).
+
 ## [0.3.0] - 2026-05-31
 
 ### Added
@@ -41,5 +57,6 @@
   `type` 누락으로 `DataTypeNotSupportedError` 발생 (provisioning-job/tenant-infra/
   domain 의 nullable varchar 컬럼에 `type` 명시).
 
+[0.4.0]: https://github.com/jin7942/haruos/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jin7942/haruos/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jin7942/haruos/releases/tag/v0.2.0
