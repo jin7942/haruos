@@ -1,15 +1,16 @@
 # HaruOS Docker Compose - 개발 모드 (단일 nginx 게이트웨이 + hot reload)
-# 사용법: make dev  (또는 docker compose -f docker-compose.dev.yml up)
+# 사용법: make up  (또는 docker compose -f docker-compose.dev.yml up)
 # 환경변수: .env 파일에서 주입 (cp .env.example .env)
 #
-# 아키텍처 (Host 헤더 기반 라우팅, 80 포트 단일 진입):
+# 자족적 기본 구성 — 클론 후 make up 만으로 어디서나 동작 (외부 인프라 의존 없음).
+# 아키텍처 (Host 헤더 기반 라우팅, HTTP_PORT 단일 진입):
 #   gateway(:80)
-#     console.haruos.local          → /api/* → console-api / /* → console-web-dev(Vite HMR)
-#     tenant.haruos.local 및 서브도메인 → /api/* → tenant-api  / /* → tenant-web-dev(Vite HMR)
+#     console.haruos.localhost          → /api/* → console-api / /* → console-web-dev(HMR)
+#     tenant.haruos.localhost 및 서브도메인 → /api/* → tenant-api  / /* → tenant-web-dev(HMR)
 #   postgres (내부) ← console-api, tenant-api
 #
-# 외부 노출 포트: HTTP_PORT(기본 80) 하나
-# /etc/hosts 에 추가 필요: 127.0.0.1 console.haruos.local tenant.haruos.local
+# *.localhost 는 브라우저가 127.0.0.1 로 자동 해석 → hosts 등록 불필요.
+# 이 머신의 공용 proxy(.internal) 통합은 docker-compose.internal.yml 오버레이 + `make up-internal`.
 
 services:
   postgres:
@@ -138,12 +139,14 @@ services:
     depends_on:
       - tenant-api
 
-  # 단일 게이트웨이: 80 포트 하나로 받아 Host 헤더로 console/tenant 분기.
-  # 포트 직접 접근(5173/5174) 구조를 제거하고 운영 구성과 동일한 진입 방식을 쓴다.
+  # 단일 게이트웨이: Host 헤더로 console/tenant 분기.
+  # 베이스에는 포트 노출/네트워크를 두지 않는다 (compose 오버레이가 리스트 항목을
+  # 제거하지 못하는 한계 때문). 접근 방식은 오버레이로 결정한다:
+  #   - 협업 표준: docker-compose.standalone.yml (HTTP_PORT 노출, *.localhost)
+  #   - 이 머신: docker-compose.internal.yml (jin-net alias, 공용 proxy 경유, *.internal)
+  # Makefile 의 up / up-internal 이 각 오버레이를 자동으로 합친다.
   gateway:
     image: nginx:alpine
-    ports:
-      - "${HTTP_PORT:-80}:80"
     volumes:
       - ./nginx/dev-gateway.conf:/etc/nginx/conf.d/default.conf
     depends_on:
