@@ -1,5 +1,6 @@
 | 버전 | 변경내용 | 작성자 | 수정일 |
 | --- | --- | --- | --- |
+| v1.2 | 환경변수 SSOT 루트 단일 .env 통합 (dotenv-cli/loadEnv) | 김진범 | 2026-05-31 |
 | v1.1 | 단일 nginx 게이트웨이(Host 기반 라우팅) + Makefile 도입 | 김진범 | 2026-05-31 |
 | v1.0 | 초기 작성 | 김진범 | 2026-03-22 |
 
@@ -162,14 +163,20 @@ docker compose -f docker-compose.dev.yml run --rm flyway-tenant
 
 DB가 실행 중인 상태에서 진행한다.
 
-### 4.1 환경변수 설정
+### 4.1 환경변수 설정 (SSOT: 루트 `.env`)
+
+환경변수는 **루트 `.env` 하나**가 유일한 소스다. 앱별 `.env`는 두지 않는다.
 
 ```bash
-cp apps/console-api/.env.example apps/console-api/.env
-cp apps/tenant-api/.env.example apps/tenant-api/.env
+make env        # .env.example -> .env 복사 (최초 1회)
 ```
 
-프론트엔드는 환경변수 파일이 필요 없다. Vite가 `VITE_API_URL`을 사용하며, 기본값은 Docker Compose에서 설정된다.
+- **로컬 실행**(`pnpm dev:*`): `dotenv-cli`가 루트 `.env`를 읽어 NestJS에 주입한다.
+- **Docker**: compose가 `--env-file .env`(루트)로 보간·주입한다.
+- **프론트엔드**: Vite `loadEnv`가 루트 `.env`에서 `VITE_*`를 로드한다.
+
+> 앱별로 다른 값(DB 이름, 포트)은 루트 `.env`에 두지 않고 각 앱의 기본값
+> (console=`haruos_console` / tenant=`haruos_tenant`)을 따른다. 공통 비밀·설정만 `.env`에 둔다.
 
 ### 4.2 의존성 설치
 

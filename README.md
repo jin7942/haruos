@@ -146,7 +146,16 @@ cd apps/tenant-api && pnpm test:e2e
 
 ## 환경변수
 
-### console-api
+**단일 진실 공급원(SSOT)은 루트 `.env` 하나**다. 앱별 `.env`는 두지 않는다.
+`cp .env.example .env`(또는 `make env`) 후 값을 채운다. 로딩 경로:
+
+- 로컬(`pnpm dev:*`): `dotenv-cli`가 루트 `.env` 주입
+- Docker: compose가 `--env-file .env` 로 보간·주입
+- 프론트(Vite): `loadEnv`가 루트 `.env`에서 `VITE_*` 로드
+
+> 앱별로 다른 값(DB 이름, 포트)은 각 앱 기본값을 따르고, 공통 비밀·설정만 `.env`에 둔다.
+
+### console-api 가 사용하는 주요 변수
 
 | 변수 | 설명 | 기본값 |
 | --- | --- | --- |
@@ -159,11 +168,9 @@ cd apps/tenant-api && pnpm test:e2e
 | `JWT_SECRET` | JWT 서명 키 | - |
 | `JWT_ACCESS_EXPIRY` | 액세스 토큰 만료 | `15m` |
 | `JWT_REFRESH_EXPIRY` | 리프레시 토큰 만료 | `7d` |
-| `CORS_ORIGIN` | CORS 허용 오리진 | `http://localhost:5173` |
+| `CORS_ORIGIN` | CORS 허용 오리진 | `http://console.haruos.localhost` |
 
-### tenant-api
-
-console-api 환경변수에 추가:
+### tenant-api 가 추가로 사용하는 변수
 
 | 변수 | 설명 | 기본값 |
 | --- | --- | --- |

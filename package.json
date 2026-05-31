@@ -10,18 +10,19 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "dotenv -e .env -- turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "dev:console-api": "pnpm --filter @haruos/console-api dev",
+    "dev:console-api": "dotenv -e .env -- pnpm --filter @haruos/console-api dev",
     "dev:console-web": "pnpm --filter @haruos/console-web dev",
-    "dev:tenant-api": "pnpm --filter @haruos/tenant-api dev",
+    "dev:tenant-api": "dotenv -e .env -- pnpm --filter @haruos/tenant-api dev",
     "dev:tenant-web": "pnpm --filter @haruos/tenant-web dev"
   },
   "devDependencies": {
     "@types/multer": "^2.1.0",
+    "dotenv-cli": "^11.0.0",
     "prettier": "^3.5.0",
     "turbo": "^2.5.0",
     "typescript": "^5.8.0"
