@@ -24,32 +24,46 @@ corepack prepare pnpm@latest --activate
 
 루트의 `Makefile`로 개발 명령을 단축한다. `make help`로 전체 목록 확인.
 
+두 가지 기동 모드가 있다. 대부분은 **협업 표준(`make up`)** 만 알면 된다.
+
+### 모드 A — 협업 표준 (`make up`)
+
+외부 인프라 의존이 없어 **클론 후 바로 동작**한다. 누구나 동일하게 쓴다.
+
 ```bash
-make hosts     # /etc/hosts 도메인 등록 안내 (최초 1회)
-make up        # 개발 환경 기동 (백그라운드)
-make logs      # 로그 따라가기
+make env       # .env 생성 (최초 1회)
+make up        # 기동 (백그라운드)
+make logs      # 로그
 make down      # 종료
 ```
 
-### 도메인 등록 (최초 1회, 필수)
-
-게이트웨이는 Host 헤더로 라우팅하므로 도메인을 hosts에 등록해야 한다.
-
-```bash
-echo '127.0.0.1 console.haruos.local tenant.haruos.local' | sudo tee -a /etc/hosts
-```
-
-### 접속 주소
+접속 (hosts 등록 불필요 — `*.localhost`는 브라우저가 127.0.0.1로 자동 해석):
 
 | 앱 | 주소 |
 | --- | --- |
-| 관리 콘솔 | http://console.haruos.local |
-| 테넌트 앱 | http://tenant.haruos.local |
+| 관리 콘솔 | http://console.haruos.localhost |
+| 테넌트 앱 | http://tenant.haruos.localhost |
 
-> 포트는 `.env`의 `HTTP_PORT`(기본 80, 표준 HTTP 포트).
-> 80이 이미 점유된 호스트(예: 공용 리버스 프록시가 도는 머신)에서는 충돌하므로,
-> 전용 VM에서 기동하는 것을 전제로 한다. 부득이하게 공유 머신에서 띄울 때만
-> `HTTP_PORT`를 8080 등으로 바꾸고 접속 URL에도 포트를 붙인다.
+> 게이트웨이는 `HTTP_PORT`(기본 80)로 노출. 80이 막혀 있으면 `.env`에서 8080 등으로
+> 바꾸고 URL에도 포트를 붙인다 (`http://console.haruos.localhost:8080`).
+
+### 모드 B — 메인 개발 머신 전용 (`make up-internal`)
+
+현재 머신처럼 **공용 nginx-proxy(:80) + `*.internal` DNS**가 이미 있는 환경에서,
+HaruOS를 그 공용 proxy 뒤에 얹는다. 게이트웨이는 포트를 노출하지 않고
+`jin-net` 네트워크에 `haruos-gateway` alias로 합류한다.
+
+```bash
+make up-internal     # 공용 proxy 에 conf 등록(proxy-install) + 기동
+make down-internal   # 종료 (proxy conf 는 상주 유지)
+make proxy-uninstall # 공용 proxy 에서 haruos conf 제거
+```
+
+접속: http://console.haruos.internal , http://tenant.haruos.internal
+
+- 공용 proxy는 upstream을 동적 해석(resolver)하므로, **HaruOS가 꺼져 있어도
+  공용 proxy와 다른 서비스(grafana 등)는 멀쩡하다** (HaruOS만 502).
+- 이 모드는 이 머신 고유 환경에 의존하며 협업 표준 구성에는 영향을 주지 않는다.
 
 ---
 
@@ -57,29 +71,34 @@ echo '127.0.0.1 console.haruos.local tenant.haruos.local' | sudo tee -a /etc/hos
 
 ### 2.1 전체 실행 (단일 게이트웨이 + hot reload)
 
-소스 코드를 마운트하여 hot reload를 지원한다. nginx 게이트웨이 하나가 80(표준 HTTP)
-포트로 받아 Host 헤더로 console/tenant를 분기한다. 개별 앱 포트는 외부에 노출하지 않는다.
+소스 코드를 마운트하여 hot reload를 지원한다. nginx 게이트웨이 하나가 Host 헤더로
+console/tenant를 분기한다. compose 구성은 베이스 + 오버레이로 나뉜다:
+
+| 파일 | 역할 |
+| --- | --- |
+| `docker-compose.dev.yml` | 베이스 (api/web/db/gateway 정의, 게이트웨이 포트/네트워크는 미정) |
+| `docker-compose.standalone.yml` | 협업 표준 오버레이 (게이트웨이 `HTTP_PORT` 노출) |
+| `docker-compose.internal.yml` | 이 머신 전용 오버레이 (jin-net alias, 포트 미노출) |
 
 ```bash
-make up
-# 또는
-cd infra/docker && docker compose -f docker-compose.dev.yml up
+make up           # 베이스 + standalone (협업 표준)
+make up-internal  # 베이스 + internal (이 머신 전용)
 ```
 
 실행되는 서비스:
 
 | 서비스 | 외부 노출 | 설명 |
 | --- | --- | --- |
-| gateway | HTTP_PORT(80) | nginx, Host 기반 라우팅 (유일한 외부 진입점) |
+| gateway | 모드 A: HTTP_PORT / 모드 B: 없음 | nginx, Host 기반 라우팅 (유일한 외부 진입점) |
 | postgres | - (내부 5432) | PostgreSQL 16 + pgvector |
 | flyway-console / flyway-tenant | - | DB 마이그레이션 (실행 후 종료) |
 | console-api / tenant-api | - (내부 3000/3001) | API. 게이트웨이가 `/api`로 프록시 |
 | console-web-dev / tenant-web-dev | - (내부 5173/5174) | Vite dev. 게이트웨이가 `/`로 프록시 |
 
-라우팅:
+라우팅 (게이트웨이는 `.localhost`/`.internal` 두 도메인을 모두 받음):
 
-- `console.haruos.local` → console-web-dev, `/api` → console-api
-- `tenant.haruos.local` (및 `*.tenant.haruos.local`) → tenant-web-dev, `/api` → tenant-api
+- `console.haruos.{localhost,internal}` → console-web-dev, `/api` → console-api
+- `tenant.haruos.{localhost,internal}` (및 서브도메인) → tenant-web-dev, `/api` → tenant-api
 
 ### 2.2 DB만 Docker로 실행
 
@@ -230,12 +249,13 @@ pnpm format:check
 
 ## 7. 프로젝트 포트 정리
 
-게이트웨이 모드에서는 **HTTP_PORT(기본 80) 하나만 외부 노출**된다.
-나머지는 Docker 내부 포트이며 게이트웨이가 프록시한다.
+협업 표준(모드 A)에서는 **HTTP_PORT(기본 80) 하나만 외부 노출**된다.
+모드 B(internal)에서는 게이트웨이도 포트를 노출하지 않고 공용 proxy가 유일한 진입점이다.
+나머지는 모두 Docker 내부 포트이며 게이트웨이가 프록시한다.
 
 | 포트 | 서비스 | 노출 |
 | --- | --- | --- |
-| 80 | gateway (nginx) | 외부 (HTTP_PORT) |
+| 80 | gateway (nginx) | 모드 A: 외부(HTTP_PORT) / 모드 B: 미노출 |
 | 3000 | console-api | 내부 |
 | 3001 | tenant-api | 내부 |
 | 5173 | console-web (Vite) | 내부 |
