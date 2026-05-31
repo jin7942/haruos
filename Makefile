@@ -1,16 +1,27 @@
 # HaruOS 개발용 Makefile (개발 모드 전용)
 #
-# 빠른 시작:
-#   make hosts     # /etc/hosts 에 도메인 등록 안내 (1회)
-#   make up        # 전체 개발 환경 기동 (백그라운드)
+# 빠른 시작 (협업 표준, 어디서나 동작):
+#   make up        # 개발 환경 기동 (백그라운드)
 #   make logs      # 로그 따라가기
+#   make down      # 종료
 #
-# 접속:
-#   http://console.haruos.local   (관리 콘솔)
-#   http://tenant.haruos.local    (테넌트 앱)
+# 접속 (hosts 등록 불필요 — *.localhost 는 127.0.0.1 자동 해석):
+#   http://console.haruos.localhost   (관리 콘솔)
+#   http://tenant.haruos.localhost    (테넌트 앱)
+#
+# 메인 개발 머신(공용 proxy + *.internal) 전용:
+#   make up-internal      # 공용 proxy 뒤에 기동 -> http://console.haruos.internal
 
-COMPOSE := docker compose -f infra/docker/docker-compose.dev.yml
-PNPM    := pnpm
+# 베이스 + 협업 표준 오버레이(포트 노출). 일반 명령(up/down/logs/db/...) 모두 이걸 사용.
+COMPOSE          := docker compose -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.standalone.yml
+# 베이스 + 이 머신 전용 오버레이(jin-net, 공용 proxy 경유)
+COMPOSE_INTERNAL := docker compose -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.internal.yml
+PNPM             := pnpm
+
+# 공용 proxy 컨테이너명 / conf 경로 (이 머신 전용)
+PROXY_CONTAINER := nginx-proxy
+PROXY_CONF_DIR  := /factory/infra/nginx/conf.d
+HARUOS_PROXY_CONF := infra/docker/nginx/haruos.internal.conf
 
 # 게이트웨이 포트 (.env 의 HTTP_PORT, 미설정 시 80). URL 안내에만 사용.
 HTTP_PORT := $(shell grep -E '^HTTP_PORT=' infra/docker/.env 2>/dev/null | cut -d= -f2)
@@ -21,17 +32,16 @@ PORT_SUFFIX := $(if $(filter 80,$(HTTP_PORT)),,:$(HTTP_PORT))
 .DEFAULT_GOAL := help
 
 # ---------------------------------------------------------------------------
-# 환경 기동/종료
+# 환경 기동/종료 (협업 표준)
 # ---------------------------------------------------------------------------
 
 .PHONY: up
-up: ## 개발 환경 기동 (백그라운드)
+up: ## 개발 환경 기동 (백그라운드, 협업 표준)
 	$(COMPOSE) up -d
 	@echo ""
-	@echo "기동 완료. 접속:"
-	@echo "  관리 콘솔 : http://console.haruos.local$(PORT_SUFFIX)"
-	@echo "  테넌트 앱 : http://tenant.haruos.local$(PORT_SUFFIX)"
-	@echo "  (도메인이 안 열리면: make hosts)"
+	@echo "기동 완료. 접속 (hosts 등록 불필요):"
+	@echo "  관리 콘솔 : http://console.haruos.localhost$(PORT_SUFFIX)"
+	@echo "  테넌트 앱 : http://tenant.haruos.localhost$(PORT_SUFFIX)"
 
 .PHONY: dev
 dev: ## 개발 환경 기동 (포그라운드, 로그 출력)
@@ -52,6 +62,34 @@ reset: ## 개발 환경 종료 + 볼륨 삭제 (DB 초기화)
 .PHONY: restart
 restart: ## 전체 컨테이너 재시작
 	$(COMPOSE) restart
+
+# ---------------------------------------------------------------------------
+# 메인 개발 머신 전용 (공용 nginx-proxy + *.internal)
+# ---------------------------------------------------------------------------
+
+.PHONY: up-internal
+up-internal: proxy-install ## 공용 proxy 뒤에 기동 (이 머신 전용)
+	$(COMPOSE_INTERNAL) up -d
+	@echo ""
+	@echo "기동 완료. 접속:"
+	@echo "  관리 콘솔 : http://console.haruos.internal"
+	@echo "  테넌트 앱 : http://tenant.haruos.internal"
+
+.PHONY: down-internal
+down-internal: ## 공용 proxy 연동 환경 종료 (proxy conf 는 유지)
+	$(COMPOSE_INTERNAL) down
+
+.PHONY: proxy-install
+proxy-install: ## 공용 proxy 에 haruos conf 등록 + reload (이 머신 전용)
+	@cp $(HARUOS_PROXY_CONF) $(PROXY_CONF_DIR)/haruos.conf
+	@docker exec $(PROXY_CONTAINER) nginx -t && docker exec $(PROXY_CONTAINER) nginx -s reload
+	@echo "공용 proxy 에 haruos.conf 등록 완료"
+
+.PHONY: proxy-uninstall
+proxy-uninstall: ## 공용 proxy 에서 haruos conf 제거 + reload
+	@rm -f $(PROXY_CONF_DIR)/haruos.conf
+	@docker exec $(PROXY_CONTAINER) nginx -t && docker exec $(PROXY_CONTAINER) nginx -s reload
+	@echo "공용 proxy 에서 haruos.conf 제거 완료"
 
 # ---------------------------------------------------------------------------
 # 관찰
@@ -138,15 +176,6 @@ env: ## .env 생성 (없을 때만)
 	else \
 		echo "infra/docker/.env 이미 존재."; \
 	fi
-
-.PHONY: hosts
-hosts: ## /etc/hosts 도메인 등록 안내 (수동 실행 명령 출력)
-	@echo "다음을 /etc/hosts 에 추가하세요 (sudo 권한 필요):"
-	@echo ""
-	@echo "  127.0.0.1 console.haruos.local tenant.haruos.local"
-	@echo ""
-	@echo "한 번에 추가하려면:"
-	@echo "  echo '127.0.0.1 console.haruos.local tenant.haruos.local' | sudo tee -a /etc/hosts"
 
 # ---------------------------------------------------------------------------
 # 도움말
