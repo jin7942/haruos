@@ -3,6 +3,22 @@
 이 프로젝트의 모든 주요 변경 사항을 기록한다.
 형식은 [Keep a Changelog](https://keepachangelog.com/), 버전은 [SemVer](https://semver.org/)를 따른다.
 
+## [0.3.0] - 2026-05-31
+
+### Added
+- 개발 게이트웨이 2모드: 협업 표준(`make up`, `*.haruos.localhost`)과
+  메인 개발 머신 통합(`make up-internal`, 공용 nginx-proxy 경유 `*.haruos.internal`).
+- compose 오버레이 분리: `docker-compose.standalone.yml`(포트 노출),
+  `docker-compose.internal.yml`(jin-net alias).
+- 공용 proxy 연동 conf(`haruos.internal.conf`) — resolver 동적 해석으로
+  HaruOS 부재 시에도 다른 상주 서비스에 영향 없음.
+- Makefile: `up-internal` / `proxy-install` / `proxy-uninstall` 타겟.
+- ADR-002 (개발환경 게이트웨이 구조).
+
+### Changed
+- 게이트웨이가 `*.localhost` / `*.internal` 두 도메인을 모두 수용.
+- README 개발 서버 실행 안내를 make 기반 `*.localhost` 로 갱신.
+
 ## [0.2.0] - 2026-05-31
 
 ### Added
@@ -25,4 +41,5 @@
   `type` 누락으로 `DataTypeNotSupportedError` 발생 (provisioning-job/tenant-infra/
   domain 의 nullable varchar 컬럼에 `type` 명시).
 
+[0.3.0]: https://github.com/jin7942/haruos/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jin7942/haruos/releases/tag/v0.2.0
