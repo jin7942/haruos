@@ -222,12 +222,118 @@ codes
 
 ---
 
-## 버전 관리
+## [REQUIRED] 브랜치/버전/커밋 규칙 (사내 표준)
 
-- Semantic Versioning: `MAJOR.MINOR.PATCH`
-- 개발 단계: `0.x.x`
-- 정식 릴리스: `1.0.0`
-- 커밋: `<type>: <subject>` (feat, fix, refactor, docs, test, chore)
+### 토폴로지 (단일 main 모델)
+
+```
+main ← vX.Y.Z (릴리스 통합, short-lived) ← feat-*, fix-* 등 (작업 단위)
+hotfix/vX.Y.Z → main 직접 머지 (긴급 패치 예외)
+```
+
+- **단일 main 모델**: `production`/`develop`/`staging` 등 환경별 장수 브랜치 신설 금지
+- 태그(`vX.Y.Z`)는 **코드 버전 식별자**. 브랜치는 *작업 흐름*만 표현
+- `feat-*` 는 `main` 직접 MR 금지. 반드시 `vX.Y.Z` 경유
+- `hotfix/vX.Y.Z` 만 `main` 직접 분기·머지 허용
+
+### 브랜치 명명
+
+| 종류 | 형식 | 예 |
+|---|---|---|
+| 릴리스 통합 | `vX.Y.Z` | `v0.21.0` |
+| 작업 | `<type>-<kebab-case>` | `feat-topology-layout`, `fix-snmp-timeout` |
+| 핫픽스 | `hotfix/vX.Y.Z` | `hotfix/v0.20.7` |
+
+Type: `feat`, `fix`, `refactor`, `perf`, `docs`, `chore`, `test`, `style`, `ci`
+
+규칙:
+- 작업 브랜치는 **하이픈** (`feat-foo`), slash 금지 (`feature/foo` 금지)
+- 작업 브랜치명에 버전 prefix 금지 (이미 `vX.Y.Z` 안에 있음)
+- 릴리스/핫픽스만 슬래시 (`hotfix/vX.Y.Z`)
+
+### 버전 (SemVer)
+
+| Bump | 언제 | 예 |
+|---|---|---|
+| MAJOR | API 깨짐, 아키텍처 변경, 호환 안 됨 | v1.2.3 → v2.0.0 |
+| MINOR | 기능 추가, 호환 유지 | v1.2.3 → v1.3.0 |
+| PATCH | 버그 수정, 호환 유지 | v1.2.3 → v1.2.4 |
+
+- 태그 형식: `vX.Y.Z` (소문자 v), 정규식 `^v\d+\.\d+\.\d+$`
+- 태그 부여 전 모든 버전 파일 동기화 (`build.gradle`, `package.json`, `pyproject.toml` 등)
+- v1.0.0 도달 전(`0.x.y`)은 MINOR도 호환 깰 수 있음 (SemVer 표준)
+- 태그 재사용 금지 (한 번 부여한 `vX.Y.Z`는 영구)
+
+### 커밋 (Conventional Commits)
+
+형식:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+- type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `style`, `ci`, `release`
+- subject: 50자 이내, 명령형, 마침표 없음
+- body: 72자/줄, *왜* 변경했는지 중심
+- breaking change: footer에 `BREAKING CHANGE: ...` 명시 → MAJOR bump 필수
+
+예:
+
+```
+feat(web): WebSocket wss 자동 매핑 추가
+
+HTTPS 페이지에서 Mixed Content 차단되던 문제 해소.
+```
+
+### 워크플로
+
+- **일반**: `main`에서 `vX.Y.Z` 생성 → `vX.Y.Z`에서 `feat-*` 분기 → MR(target: `vX.Y.Z`) → 머지 → 다른 기능 반복 → 릴리스 시 버전 동기화 + CHANGELOG + `vX.Y.Z` → `main` MR → 머지 후 태그 부여
+- **핫픽스**: `main`에서 `hotfix/vX.Y.Z` 분기 → 수정 + PATCH bump → MR(target: `main`) → 머지 후 태그 부여
+- **릴리스 커밋 메시지**: `release: vX.Y.Z`
+
+### MR 룰
+
+| 종류 | source → target | 머지 방식 |
+|---|---|---|
+| 작업 | `feat-*` → `vX.Y.Z` | merge commit (squash 선택 가능) |
+| 릴리스 | `vX.Y.Z` → `main` | **merge commit, squash 금지** |
+| 핫픽스 | `hotfix/vX.Y.Z` → `main` | **merge commit, squash 금지** |
+
+릴리스/핫픽스 squash 금지 이유: 어떤 작업이 어느 릴리스에 들어갔는지 히스토리 추적.
+
+### 브랜치 삭제 정책
+
+- 머지된 작업 브랜치(`feat-*`, `fix-*`, …) → **즉시 삭제**
+- 머지된 핫픽스 브랜치 → **즉시 삭제**
+- `vX.Y.Z` 릴리스 브랜치 → **`main` 머지 + 태그 후 삭제**
+- GitLab MR "Delete source branch when merge request is accepted" 기본 활성화
+- 로컬 브랜치 정리는 개발자 자율 (강제 X)
+
+### 금지
+
+- `main`에 직접 push (hotfix 머지 제외)
+- `feat-*`를 `main`으로 직접 MR
+- 핫픽스 외에 `main` 직접 분기
+- 릴리스/핫픽스 MR squash 머지
+- force-push to `main` 또는 `vX.Y.Z`
+- 태그 재사용 (한 번 부여한 `vX.Y.Z`는 영구)
+- `production`/`develop`/`staging` 등 환경별 장수 브랜치 신설
+- 머지 완료된 브랜치 방치
+- 작업 브랜치명에 slash 사용 (`feature/foo` 금지 → `feat-foo`)
+
+### 빠른 결정
+
+| 작업 | 브랜치 |
+|---|---|
+| 새 기능 (다음 릴리스 없음) | `main`에서 `vX.Y.Z` 생성 → `feat-*` 분기 |
+| 새 기능 (다음 릴리스 진행 중) | `vX.Y.Z`에서 `feat-*` 분기 |
+| 일반 버그 | `vX.Y.Z`에서 `fix-*` 분기 |
+| 운영 긴급 버그 | `main`에서 `hotfix/vX.Y.Z` 분기 |
+| 리팩토링 | `vX.Y.Z`에서 `refactor-*` 분기 |
 
 ---
 

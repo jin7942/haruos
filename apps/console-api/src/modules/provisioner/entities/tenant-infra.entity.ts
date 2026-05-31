@@ -13,37 +13,37 @@ export class TenantInfraEntity extends BaseEntity {
   @Column({ name: 'tenant_id', unique: true })
   tenantId: string;
 
-  @Column({ name: 'ecs_cluster_arn', length: 500, nullable: true })
+  @Column({ name: 'ecs_cluster_arn', type: 'varchar', length: 500, nullable: true })
   ecsClusterArn: string | null;
 
-  @Column({ name: 'ecs_service_arn', length: 500, nullable: true })
+  @Column({ name: 'ecs_service_arn', type: 'varchar', length: 500, nullable: true })
   ecsServiceArn: string | null;
 
-  @Column({ name: 'rds_endpoint', length: 500, nullable: true })
+  @Column({ name: 'rds_endpoint', type: 'varchar', length: 500, nullable: true })
   rdsEndpoint: string | null;
 
-  @Column({ name: 'rds_instance_id', length: 100, nullable: true })
+  @Column({ name: 'rds_instance_id', type: 'varchar', length: 100, nullable: true })
   rdsInstanceId: string | null;
 
-  @Column({ name: 's3_bucket_name', length: 255, nullable: true })
+  @Column({ name: 's3_bucket_name', type: 'varchar', length: 255, nullable: true })
   s3BucketName: string | null;
 
-  @Column({ name: 'alb_dns_name', length: 500, nullable: true })
+  @Column({ name: 'alb_dns_name', type: 'varchar', length: 500, nullable: true })
   albDnsName: string | null;
 
-  @Column({ name: 'alb_arn', length: 500, nullable: true })
+  @Column({ name: 'alb_arn', type: 'varchar', length: 500, nullable: true })
   albArn: string | null;
 
-  @Column({ name: 'vpc_id', length: 50, nullable: true })
+  @Column({ name: 'vpc_id', type: 'varchar', length: 50, nullable: true })
   vpcId: string | null;
 
-  @Column({ name: 'ecr_repository_url', length: 500, nullable: true })
+  @Column({ name: 'ecr_repository_url', type: 'varchar', length: 500, nullable: true })
   ecrRepositoryUrl: string | null;
 
-  @Column({ name: 'current_task_definition', length: 500, nullable: true })
+  @Column({ name: 'current_task_definition', type: 'varchar', length: 500, nullable: true })
   currentTaskDefinition: string | null;
 
-  @Column({ name: 'current_app_version', length: 50, nullable: true })
+  @Column({ name: 'current_app_version', type: 'varchar', length: 50, nullable: true })
   currentAppVersion: string | null;
 
   /**
