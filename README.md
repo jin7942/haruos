@@ -96,43 +96,38 @@ pnpm install
 
 ### 개발 서버 실행
 
-**방법 1: Docker Compose (권장)**
+루트 `Makefile`로 단축한다 (`make help`로 전체 목록). 단일 nginx 게이트웨이가
+Host 헤더로 console/tenant를 분기하며, 개별 앱 포트는 외부에 노출하지 않는다.
 
-DB + API + 프론트엔드를 한 번에 실행한다.
+**방법 1: Docker (권장, 협업 표준)**
+
+외부 인프라 의존이 없어 클론 후 바로 동작한다.
 
 ```bash
-cd infra/docker
-docker compose -f docker-compose.dev.yml up
+make env     # .env 생성 (최초 1회)
+make up      # DB + API + 프론트 + 게이트웨이 기동
+make logs    # 로그
+make down    # 종료
 ```
 
-| 서비스 | 포트 |
+접속 (hosts 등록 불필요 — `*.localhost`는 127.0.0.1 자동 해석):
+
+| 앱 | 주소 |
 | --- | --- |
-| console-web | http://localhost:5173 |
-| tenant-web | http://localhost:5174 |
-| console-api | http://localhost:3000 |
-| tenant-api | http://localhost:3001 |
-| PostgreSQL | localhost:5432 |
+| 관리 콘솔 | http://console.haruos.localhost |
+| 테넌트 앱 | http://tenant.haruos.localhost |
+
+> 게이트웨이는 `HTTP_PORT`(기본 80)로 노출. 80이 막혀 있으면 `.env`에서 바꾼다.
+> 공용 nginx-proxy가 있는 메인 개발 머신은 `make up-internal`(→ `*.haruos.internal`) 사용.
 
 **방법 2: 로컬 실행 (DB만 Docker)**
 
 ```bash
-# 1. DB + Flyway 마이그레이션 실행
-cd infra/docker
-docker compose -f docker-compose.dev.yml up postgres flyway-console flyway-tenant
-
-# 2. 환경변수 설정
-cp apps/console-api/.env.example apps/console-api/.env
-cp apps/tenant-api/.env.example apps/tenant-api/.env
-
-# 3. 전체 개발 서버 실행
-pnpm dev
-
-# 또는 개별 실행
-pnpm dev:console-api
-pnpm dev:console-web
-pnpm dev:tenant-api
-pnpm dev:tenant-web
+make db                 # DB + Flyway 마이그레이션만 Docker 로
+pnpm dev                # 전체 앱 로컬 실행 (또는 pnpm dev:console-api 등 개별)
 ```
+
+자세한 내용: [docs/guides/local-development.md](docs/guides/local-development.md)
 
 ### 테스트
 

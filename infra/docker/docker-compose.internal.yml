@@ -1,0 +1,29 @@
+# HaruOS Docker Compose - 메인 개발 머신 전용 오버레이
+#
+# 이 머신은 공용 nginx-proxy(jin-net, :80)가 *.internal 도메인을 분기한다.
+# 기본(docker-compose.dev.yml)에 이 파일을 겹쳐 gateway 를 공용 proxy 뒤에 둔다.
+#   - 외부 포트 노출 제거 (80 은 공용 proxy 단독)
+#   - jin-net 합류 + 'haruos-gateway' alias (공용 proxy 가 이 이름으로 접근)
+#
+# 사용: make up-internal
+#   (= docker compose -f docker-compose.dev.yml -f docker-compose.internal.yml up -d)
+#
+# 접속: http://console.haruos.internal , http://tenant.haruos.internal
+# 전제: 공용 proxy conf 에 haruos.internal.conf 등록 (make proxy-install 참고).
+#
+# 협업 표준 구성에는 영향 없음 — 이 파일은 이 머신에서만 사용한다.
+
+services:
+  gateway:
+    # 기본의 ports 노출을 제거 (공용 proxy 가 유일한 80 진입점)
+    ports: []
+    networks:
+      default: {}
+      jin-net:
+        aliases:
+          - haruos-gateway
+
+networks:
+  default: {}
+  jin-net:
+    external: true

@@ -1,0 +1,16 @@
+# HaruOS Docker Compose - 협업 표준 오버레이 (자족적)
+#
+# 베이스(docker-compose.dev.yml)에 겹쳐 게이트웨이를 HTTP_PORT 로 직접 노출한다.
+# 외부 인프라 의존이 없어 클론 후 `make up` 만으로 어디서나 동작한다.
+#
+# 사용: make up
+#   (= docker compose -f docker-compose.dev.yml -f docker-compose.standalone.yml up -d)
+#
+# 접속 (hosts 등록 불필요 — *.localhost 는 127.0.0.1 자동 해석):
+#   http://console.haruos.localhost:HTTP_PORT
+#   http://tenant.haruos.localhost:HTTP_PORT
+
+services:
+  gateway:
+    ports:
+      - "${HTTP_PORT:-80}:80"
