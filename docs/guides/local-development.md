@@ -1,5 +1,6 @@
 | 버전 | 변경내용 | 작성자 | 수정일 |
 | --- | --- | --- | --- |
+| v1.1 | 단일 nginx 게이트웨이(Host 기반 라우팅) + Makefile 도입 | 김진범 | 2026-05-31 |
 | v1.0 | 초기 작성 | 김진범 | 2026-03-22 |
 
 # 로컬 개발 가이드
@@ -19,36 +20,75 @@ corepack enable
 corepack prepare pnpm@latest --activate
 ```
 
-## 2. Docker 환경 설정
+## 1.5 빠른 시작 (Makefile)
 
-### 2.1 전체 실행 (Docker Compose dev 모드)
-
-소스 코드를 마운트하여 hot reload를 지원한다.
+루트의 `Makefile`로 개발 명령을 단축한다. `make help`로 전체 목록 확인.
 
 ```bash
-cd infra/docker
-docker compose -f docker-compose.dev.yml up
+make hosts     # /etc/hosts 도메인 등록 안내 (최초 1회)
+make up        # 개발 환경 기동 (백그라운드)
+make logs      # 로그 따라가기
+make down      # 종료
+```
+
+### 도메인 등록 (최초 1회, 필수)
+
+게이트웨이는 Host 헤더로 라우팅하므로 도메인을 hosts에 등록해야 한다.
+
+```bash
+echo '127.0.0.1 console.haruos.local tenant.haruos.local' | sudo tee -a /etc/hosts
+```
+
+### 접속 주소
+
+| 앱 | 주소 |
+| --- | --- |
+| 관리 콘솔 | http://console.haruos.local |
+| 테넌트 앱 | http://tenant.haruos.local |
+
+> 포트는 `.env`의 `HTTP_PORT`(기본 80, 표준 HTTP 포트).
+> 80이 이미 점유된 호스트(예: 공용 리버스 프록시가 도는 머신)에서는 충돌하므로,
+> 전용 VM에서 기동하는 것을 전제로 한다. 부득이하게 공유 머신에서 띄울 때만
+> `HTTP_PORT`를 8080 등으로 바꾸고 접속 URL에도 포트를 붙인다.
+
+---
+
+## 2. Docker 환경 설정
+
+### 2.1 전체 실행 (단일 게이트웨이 + hot reload)
+
+소스 코드를 마운트하여 hot reload를 지원한다. nginx 게이트웨이 하나가 80(표준 HTTP)
+포트로 받아 Host 헤더로 console/tenant를 분기한다. 개별 앱 포트는 외부에 노출하지 않는다.
+
+```bash
+make up
+# 또는
+cd infra/docker && docker compose -f docker-compose.dev.yml up
 ```
 
 실행되는 서비스:
 
-| 서비스 | 포트 | 설명 |
+| 서비스 | 외부 노출 | 설명 |
 | --- | --- | --- |
-| postgres | 5432 | PostgreSQL 16 + pgvector |
-| flyway-console | - | console DB 마이그레이션 (실행 후 종료) |
-| flyway-tenant | - | tenant DB 마이그레이션 (실행 후 종료) |
-| console-api | 3000 | 관리 콘솔 API |
-| tenant-api | 3001 | 테넌트 API |
-| console-web | 5173 | 관리 콘솔 프론트엔드 |
-| tenant-web | 5174 | 테넌트 프론트엔드 |
+| gateway | HTTP_PORT(80) | nginx, Host 기반 라우팅 (유일한 외부 진입점) |
+| postgres | - (내부 5432) | PostgreSQL 16 + pgvector |
+| flyway-console / flyway-tenant | - | DB 마이그레이션 (실행 후 종료) |
+| console-api / tenant-api | - (내부 3000/3001) | API. 게이트웨이가 `/api`로 프록시 |
+| console-web-dev / tenant-web-dev | - (내부 5173/5174) | Vite dev. 게이트웨이가 `/`로 프록시 |
+
+라우팅:
+
+- `console.haruos.local` → console-web-dev, `/api` → console-api
+- `tenant.haruos.local` (및 `*.tenant.haruos.local`) → tenant-web-dev, `/api` → tenant-api
 
 ### 2.2 DB만 Docker로 실행
 
 API와 프론트엔드는 로컬에서 직접 실행하고 싶을 때 사용한다.
 
 ```bash
-cd infra/docker
-docker compose -f docker-compose.dev.yml up postgres flyway-console flyway-tenant
+make db
+# 또는
+cd infra/docker && docker compose -f docker-compose.dev.yml up postgres flyway-console flyway-tenant
 ```
 
 PostgreSQL 초기화 시 `init-db.sh`가 자동 실행되어 다음을 수행한다:
@@ -190,13 +230,19 @@ pnpm format:check
 
 ## 7. 프로젝트 포트 정리
 
-| 포트 | 서비스 |
-| --- | --- |
-| 3000 | console-api |
-| 3001 | tenant-api |
-| 5173 | console-web |
-| 5174 | tenant-web |
-| 5432 | PostgreSQL |
+게이트웨이 모드에서는 **HTTP_PORT(기본 80) 하나만 외부 노출**된다.
+나머지는 Docker 내부 포트이며 게이트웨이가 프록시한다.
+
+| 포트 | 서비스 | 노출 |
+| --- | --- | --- |
+| 80 | gateway (nginx) | 외부 (HTTP_PORT) |
+| 3000 | console-api | 내부 |
+| 3001 | tenant-api | 내부 |
+| 5173 | console-web (Vite) | 내부 |
+| 5174 | tenant-web (Vite) | 내부 |
+| 5432 | PostgreSQL | 내부 |
+
+> 로컬에서 `pnpm dev`로 직접 실행할 때만 5173/5174로 접근한다.
 
 ## 8. 트러블슈팅
 

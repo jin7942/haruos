@@ -23,7 +23,7 @@ export class DomainEntity extends BaseEntity {
   type: string;
 
   /** 공통코드 DNS_PROVIDER: CLOUDFLARE, ROUTE53, MANUAL */
-  @Column({ name: 'dns_provider', length: 50, nullable: true })
+  @Column({ name: 'dns_provider', type: 'varchar', length: 50, nullable: true })
   dnsProvider: string | null;
 
   /** 공통코드 DOMAIN_STATUS: PENDING, VERIFIED, ACTIVE, FAILED */
@@ -34,21 +34,21 @@ export class DomainEntity extends BaseEntity {
   isPrimary: boolean;
 
   /** CNAME 대상 (수동 DNS용) */
-  @Column({ name: 'cname_target', length: 255, nullable: true })
+  @Column({ name: 'cname_target', type: 'varchar', length: 255, nullable: true })
   cnameTarget: string | null;
 
   /** 공통코드 SSL_STATUS */
-  @Column({ name: 'ssl_status', length: 50, nullable: true })
+  @Column({ name: 'ssl_status', type: 'varchar', length: 50, nullable: true })
   sslStatus: string | null;
 
   @Column({ name: 'dns_verified_at', type: 'timestamptz', nullable: true })
   dnsVerifiedAt: Date | null;
 
-  @Column({ name: 'cloudflare_zone_id', length: 100, nullable: true })
+  @Column({ name: 'cloudflare_zone_id', type: 'varchar', length: 100, nullable: true })
   cloudflareZoneId: string | null;
 
   /** 암호화된 Cloudflare API 토큰 */
-  @Column({ name: 'cloudflare_api_token_enc', length: 500, nullable: true })
+  @Column({ name: 'cloudflare_api_token_enc', type: 'varchar', length: 500, nullable: true })
   cloudflareApiTokenEnc: string | null;
 
   /**
