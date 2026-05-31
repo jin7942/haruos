@@ -17,7 +17,7 @@ export class ProvisioningJobEntity extends BaseEntity {
   @Column({ name: 'status', length: 50, default: 'PENDING' })
   status: string;
 
-  @Column({ name: 'current_step', length: 100, nullable: true })
+  @Column({ name: 'current_step', type: 'varchar', length: 100, nullable: true })
   currentStep: string | null;
 
   @Column({ name: 'total_steps', default: 0 })
@@ -35,7 +35,7 @@ export class ProvisioningJobEntity extends BaseEntity {
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string | null;
 
-  @Column({ name: 'terraform_state_key', length: 500, nullable: true })
+  @Column({ name: 'terraform_state_key', type: 'varchar', length: 500, nullable: true })
   terraformStateKey: string | null;
 
   /**

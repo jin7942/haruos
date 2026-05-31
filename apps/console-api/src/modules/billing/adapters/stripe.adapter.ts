@@ -22,7 +22,12 @@ export class StripeAdapter extends PaymentPort {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY', '');
     this.webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET', '');
 
-    this.stripe = new Stripe(secretKey);
+    if (!secretKey) {
+      // 키 미설정(로컬 개발 등)에도 앱이 부팅되도록 placeholder로 초기화한다.
+      // 실제 결제 API 호출 시점에만 Stripe가 인증 오류를 반환한다.
+      this.logger.warn('STRIPE_SECRET_KEY 미설정 — 결제 기능 비활성, placeholder 키로 초기화');
+    }
+    this.stripe = new Stripe(secretKey || 'sk_test_placeholder');
   }
 
   /** {@inheritDoc PaymentPort.createCustomer} */
