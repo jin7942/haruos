@@ -29,7 +29,9 @@ import { StatsModule } from './modules/stats/stats.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      // SSOT = 루트 .env. 로컬은 pnpm dev(dotenv-cli)가, Docker는 compose 가 주입한다.
+      // 직접 nest 실행 대비 루트 .env 도 fallback 으로 읽는다(앱 cwd 기준 상대경로).
+      envFilePath: '../../.env',
       validationSchema: Joi.object({
         NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
         PORT: Joi.number().default(3001),
