@@ -12,10 +12,11 @@
 # 메인 개발 머신(공용 proxy + *.internal) 전용:
 #   make up-internal      # 공용 proxy 뒤에 기동 -> http://console.haruos.internal
 
+# 환경변수 SSOT = 루트 .env (--env-file 로 compose 보간/주입에 사용)
 # 베이스 + 협업 표준 오버레이(포트 노출). 일반 명령(up/down/logs/db/...) 모두 이걸 사용.
-COMPOSE          := docker compose -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.standalone.yml
+COMPOSE          := docker compose --env-file .env -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.standalone.yml
 # 베이스 + 이 머신 전용 오버레이(jin-net, 공용 proxy 경유)
-COMPOSE_INTERNAL := docker compose -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.internal.yml
+COMPOSE_INTERNAL := docker compose --env-file .env -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.internal.yml
 PNPM             := pnpm
 
 # 공용 proxy 컨테이너명 / conf 경로 (이 머신 전용)
@@ -23,8 +24,8 @@ PROXY_CONTAINER := nginx-proxy
 PROXY_CONF_DIR  := /factory/infra/nginx/conf.d
 HARUOS_PROXY_CONF := infra/docker/nginx/haruos.internal.conf
 
-# 게이트웨이 포트 (.env 의 HTTP_PORT, 미설정 시 80). URL 안내에만 사용.
-HTTP_PORT := $(shell grep -E '^HTTP_PORT=' infra/docker/.env 2>/dev/null | cut -d= -f2)
+# 게이트웨이 포트 (루트 .env 의 HTTP_PORT, 미설정 시 80). URL 안내에만 사용.
+HTTP_PORT := $(shell grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2)
 HTTP_PORT := $(or $(HTTP_PORT),80)
 PORT_SUFFIX := $(if $(filter 80,$(HTTP_PORT)),,:$(HTTP_PORT))
 
@@ -169,12 +170,12 @@ install: ## 의존성 설치
 	$(PNPM) install
 
 .PHONY: env
-env: ## .env 생성 (없을 때만)
-	@if [ ! -f infra/docker/.env ]; then \
-		cp infra/docker/.env.example infra/docker/.env; \
-		echo "infra/docker/.env 생성됨. 필요한 값(STRIPE 등)을 채우세요."; \
+env: ## 루트 .env 생성 (없을 때만)
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "루트 .env 생성됨. 필요한 값(STRIPE 등)을 채우세요."; \
 	else \
-		echo "infra/docker/.env 이미 존재."; \
+		echo ".env 이미 존재."; \
 	fi
 
 # ---------------------------------------------------------------------------
