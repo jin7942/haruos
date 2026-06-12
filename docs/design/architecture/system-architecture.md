@@ -313,7 +313,7 @@ haruos/
 │   └── docker/                # Dockerfile, docker-compose.yml
 │
 ├── docs/
-├── ADR/
+├── decisions/                 # 의사결정 기록 (RFC → ADR)
 └── package.json               # 모노레포 워크스페이스 (pnpm)
 ```
 

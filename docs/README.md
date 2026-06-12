@@ -20,7 +20,12 @@ docs/
 ```
 
 ```
-ADR/
-├── README.md                       # ADR 목록
-└── ADR-001-*.md                    # 의사결정 기록
+decisions/                          # 의사결정 기록 (RFC 논의 → ADR 확정)
+├── README.md                       # 의사결정 인덱스 + 프로세스
+├── ADR/
+│   ├── README.md                   # ADR 목록
+│   └── ADR-001-*.md                # 확정된 결정
+└── RFC/
+    ├── README.md                   # RFC 목록 + 상태 정의
+    └── TEMPLATE.md                 # RFC 복사 시드
 ```
