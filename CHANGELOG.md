@@ -3,6 +3,16 @@
 이 프로젝트의 모든 주요 변경 사항을 기록한다.
 형식은 [Keep a Changelog](https://keepachangelog.com/), 버전은 [SemVer](https://semver.org/)를 따른다.
 
+## [0.6.0] - 2026-06-12
+
+### Added
+- RFC-001(무료 사용자 격리 전략) 수용 → ADR-004(이중 트랙 Pool+Silo)로 승격.
+  - `docs-decisions-folder` 브랜치의 RFC-001 작성 커밋을 cherry-pick으로 편입
+    (작성자 HoneyWater8 협력 기록 보존).
+  - RFC-001 본문을 루트 `decisions/RFC/`로 이관(경로 정정), 상태 `확정으로 승격`.
+  - ADR-004 신설(채택=옵션2 이중 트랙). 미해결 질문은 후속 RFC로 위임.
+  - `decisions/ADR/TEMPLATE.md` 추가 (브랜치에서 흡수).
+
 ## [0.5.0] - 2026-06-12
 
 ### Added
@@ -71,6 +81,7 @@
   `type` 누락으로 `DataTypeNotSupportedError` 발생 (provisioning-job/tenant-infra/
   domain 의 nullable varchar 컬럼에 `type` 명시).
 
+[0.6.0]: https://github.com/jin7942/haruos/releases/tag/v0.6.0
 [0.5.0]: https://github.com/jin7942/haruos/releases/tag/v0.5.0
 [0.4.0]: https://github.com/jin7942/haruos/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jin7942/haruos/releases/tag/v0.3.0
