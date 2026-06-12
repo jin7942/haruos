@@ -70,7 +70,7 @@ haruos/
 │   ├── ansible/            # 서버 설정 자동화
 │   └── scripts/            # 운영 스크립트
 ├── docs/                   # 기획안, 설계 문서
-├── ADR/                    # Architecture Decision Records
+├── decisions/              # 의사결정 기록 (RFC 논의 → ADR 확정)
 ├── turbo.json              # Turborepo 설정
 └── pnpm-workspace.yaml     # pnpm 워크스페이스 설정
 ```
