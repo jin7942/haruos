@@ -3,6 +3,20 @@
 이 프로젝트의 모든 주요 변경 사항을 기록한다.
 형식은 [Keep a Changelog](https://keepachangelog.com/), 버전은 [SemVer](https://semver.org/)를 따른다.
 
+## [0.5.0] - 2026-06-12
+
+### Added
+- 의사결정 프로세스 RFC → ADR 파이프라인 도입.
+  - `decisions/` 단일 폴더로 통합 (`decisions/ADR/` + `decisions/RFC/`).
+  - `decisions/README.md`(인덱스·프로세스·승격 규칙), `RFC/README.md`(상태 정의),
+    `RFC/TEMPLATE.md`(복사 시드) 추가.
+  - CLAUDE.md "의사결정 기록 (RFC → ADR)" 절로 확장 (RFC 단계·승격 규칙·양쪽 템플릿).
+
+### Changed
+- 기존 `ADR/` → `decisions/ADR/` 로 이동 (ADR-001~003 보존).
+- 문서 트리의 `ADR/` 참조를 `decisions/`로 갱신 (README, docs/README,
+  technical-architecture, system-architecture).
+
 ## [0.4.0] - 2026-05-31
 
 ### Changed
@@ -57,6 +71,7 @@
   `type` 누락으로 `DataTypeNotSupportedError` 발생 (provisioning-job/tenant-infra/
   domain 의 nullable varchar 컬럼에 `type` 명시).
 
+[0.5.0]: https://github.com/jin7942/haruos/releases/tag/v0.5.0
 [0.4.0]: https://github.com/jin7942/haruos/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jin7942/haruos/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jin7942/haruos/releases/tag/v0.2.0
