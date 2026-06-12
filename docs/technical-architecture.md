@@ -107,7 +107,7 @@ haruos/                          # package.json: "haruos" v0.1.0
 │   ├── flyway/                  # Console DB + Tenant DB 마이그레이션
 │   └── docker/                  # Dockerfile, compose, nginx 설정
 ├── .github/workflows/           # CI (lint+build+test) + CD (ECR push + ECS deploy)
-├── ADR/                         # Architecture Decision Records
+├── decisions/                   # 의사결정 기록 (RFC 논의 → ADR 확정)
 ├── turbo.json                   # Turborepo 파이프라인 설정
 └── docs/                        # 문서
 ```
